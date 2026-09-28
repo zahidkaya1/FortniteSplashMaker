@@ -15,21 +15,12 @@ Fortnite Easy Anti-Cheat başlangıç ekranını kolayca değiştirmek, özel sp
 - Kütüphaneye görsel ekleme, silme ve tekrar uygulama
 - Aktif sezon splash görselini geri yükleme
 - Aktif splash durumunu algılama
-- Windows için paketlenmiş EXE sürümü
-- Windows Setup desteği
+- Windows için paketlenmiş EXE ve Setup sürümü
 - Özel uygulama ikonu
 
 ## Kütüphane
 
 Hazırladığınız splash görsellerini uygulamanın yerel kütüphanesinde saklayabilirsiniz.
-
-Kütüphane üzerinden:
-
-- Yeni görsel ekleyebilirsiniz
-- Görselleri önizleyebilirsiniz
-- Daha önce kaydettiğiniz bir splash'i tekrar Fortnite'a uygulayabilirsiniz
-- Kayıtlı görselleri silebilirsiniz
-- Aktif sezon splash görseline hızlıca dönebilirsiniz
 
 ![Kütüphane](docs/screenshots/library.png)
 
@@ -51,8 +42,6 @@ En güncel sürümü GitHub Releases sayfasından indirebilirsiniz.
 
 Normal Windows kurulumu yapar.
 
-Kurulum sonrasında uygulamayı Başlat menüsünden veya oluşturmayı seçtiyseniz masaüstü kısayolundan çalıştırabilirsiniz.
-
 ### Portable
 
 `FortniteSplashMaker-v1.0.0-win64.zip`
@@ -70,17 +59,6 @@ ZIP dosyasını bir klasöre çıkarın ve `FortniteSplashMaker.exe` dosyasını
 7. İsterseniz hazırladığınız görseli kütüphaneye ekleyin.
 8. Varsayılan splash'e dönmek için `Aktif Sezon Splash'ini Geri Yükle` seçeneğini kullanın.
 
-## Görsel Formatı
-
-Fortnite splash görselleri uygulama tarafından otomatik olarak şu formata dönüştürülür:
-
-- Boyut: `800×450`
-- Format: `PNG`
-- Renk modu: `RGBA`
-- Yeniden boyutlandırma: merkez odaklı otomatik kırpma
-
-Bu sayede farklı boyut ve oranlardaki görseller doğrudan kullanılabilir.
-
 ## Proje Yapısı
 
 ```text
@@ -89,31 +67,26 @@ FortniteSplashMaker/
 │  ├─ app_icon.ico
 │  ├─ app_icon.png
 │  └─ current_season_splash.png
-│
 ├─ docs/
-│  └─ screenshots/
-│     ├─ create.png
-│     ├─ library.png
-│     └─ settings.png
-│
+│  ├─ screenshots/
+│  │  ├─ create.png
+│  │  ├─ library.png
+│  │  └─ settings.png
+│  ├─ BUILD.md
+│  ├─ RELEASE.md
+│  └─ INSTALLER.md
+├─ installer/
+│  └─ installer.iss
 ├─ library/
-│
+├─ scripts/
+│  ├─ build.ps1
+│  ├─ build.bat
+│  ├─ release.ps1
+│  ├─ release.bat
+│  ├─ build-installer.ps1
+│  └─ build-installer.bat
 ├─ main.py
 ├─ requirements.txt
-│
-├─ build.ps1
-├─ build.bat
-├─ BUILD.md
-│
-├─ release.ps1
-├─ release.bat
-├─ RELEASE.md
-│
-├─ installer.iss
-├─ build-installer.ps1
-├─ build-installer.bat
-├─ INSTALLER.md
-│
 ├─ .gitignore
 └─ README.md
 ```
@@ -122,15 +95,11 @@ FortniteSplashMaker/
 
 ## Gereksinimler
 
-Kaynak koddan çalıştırmak için:
-
 - Windows
 - Python 3.12 veya üzeri
 - CustomTkinter
 - Pillow
 - PyInstaller
-
-Bağımlılıkları yüklemek için:
 
 ```powershell
 pip install -r requirements.txt
@@ -144,81 +113,25 @@ python main.py
 
 ## Windows EXE Oluşturma
 
-Proje klasöründe:
-
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-veya:
+veya `scripts\build.bat`.
 
-```text
-build.bat
-```
-
-Build tamamlandığında uygulama şu klasörde oluşturulur:
-
-```text
-dist\FortniteSplashMaker\
-```
-
-Ana çalıştırılabilir dosya:
+Çıktı:
 
 ```text
 dist\FortniteSplashMaker\FortniteSplashMaker.exe
 ```
 
-Uygulama PyInstaller `onedir` yapısıyla paketlenir.
-
-## Windows Installer Oluşturma
-
-Installer oluşturmak için önce normal uygulama build'inin hazır olması gerekir.
-
-### 1. EXE build oluşturun
+## Portable Release Oluşturma
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1
 ```
 
-### 2. Inno Setup 6
-
-Installer derlemek için Inno Setup 6 gereklidir.
-
-### 3. Installer oluşturun
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build-installer.ps1
-```
-
-veya:
-
-```text
-build-installer.bat
-```
-
-Başarılı build sonrasında:
-
-```text
-release\FortniteSplashMaker-v1.0.0-Setup.exe
-```
-
-dosyası oluşturulur.
-
-Installer varsayılan olarak uygulamayı kullanıcı profili altındaki Programs klasörüne kurar.
-
-## Release Paketi Oluşturma
-
-Portable ZIP paketi hazırlamak için:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\release.ps1
-```
-
-veya:
-
-```text
-release.bat
-```
+veya `scripts\release.bat`.
 
 Çıktı:
 
@@ -226,39 +139,57 @@ release.bat
 release\FortniteSplashMaker-v1.0.0-win64.zip
 ```
 
-Release paketi kullanıcıya ait `settings.json` dosyasını içermez ve boş bir kütüphane ile hazırlanır.
+## Windows Installer Oluşturma
 
-## Ayarlar ve Kullanıcı Verileri
+Önce normal build alın:
 
-Uygulama çalışırken `settings.json` dosyası otomatik olarak oluşturulabilir.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+```
 
-Kullanıcının eklediği splash görselleri `library\` klasöründe tutulur.
+Ardından:
 
-Bu dosyalar kişisel kullanıcı verisi olduğu için Git deposunda takip edilmez.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
+```
+
+veya `scripts\build-installer.bat`.
+
+Çıktı:
+
+```text
+release\FortniteSplashMaker-v1.0.0-Setup.exe
+```
+
+## Belgeler
+
+- `docs/BUILD.md` — normal EXE build süreci
+- `docs/RELEASE.md` — portable release paketi
+- `docs/INSTALLER.md` — Windows installer süreci
+
+## Kullanıcı Verileri
+
+`settings.json` çalışma sırasında otomatik oluşturulabilir.
+
+Kullanıcı splash görselleri `library\` klasöründe tutulur ve Git deposuna eklenmez.
 
 ## Aktif Sezon Splash
 
-Uygulamanın kullandığı bilinen aktif sezon splash görseli:
+Bilinen aktif sezon görseli:
 
 ```text
 assets\current_season_splash.png
 ```
 
-dosyasında bulunur.
-
 `Aktif Sezon Splash'ini Geri Yükle` seçeneği bu görseli Fortnite'ın Easy Anti-Cheat splash dosyasına uygular.
 
 ## Yetki Sorunları
 
-Fortnite kurulum klasörüne yazma izni yoksa uygulama hata verebilir.
-
-Bu durumda uygulamayı yönetici olarak çalıştırmayı deneyebilirsiniz.
+Fortnite kurulum klasörüne yazma izni yoksa uygulamayı yönetici olarak çalıştırmak gerekebilir.
 
 ## Windows SmartScreen
 
 Uygulama ticari bir kod imzalama sertifikasıyla imzalanmadığı için Windows bazı sistemlerde SmartScreen uyarısı gösterebilir.
-
-Bu durum özellikle yeni veya az indirilmiş bağımsız uygulamalarda görülebilir.
 
 ## Sürüm
 
@@ -271,5 +202,3 @@ Bu proje bağımsız bir topluluk aracıdır.
 Epic Games tarafından geliştirilmemiş, desteklenmemiş veya resmî olarak onaylanmamıştır.
 
 Fortnite ve ilgili marka, logo ve isimler Epic Games'in mülkiyetindedir.
-
-Bu proje yalnızca kullanıcıların kendi yerel Fortnite kurulumlarındaki splash görselini yönetmesini kolaylaştırmak amacıyla geliştirilmiştir.

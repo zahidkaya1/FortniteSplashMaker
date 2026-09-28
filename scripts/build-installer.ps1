@@ -1,9 +1,12 @@
 $ErrorActionPreference = "Stop"
 
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $ProjectRoot
+
 $AppName = "FortniteSplashMaker"
 $Version = "1.0.0"
 $DistExe = ".\dist\$AppName\$AppName.exe"
-$IssFile = ".\installer.iss"
+$IssFile = ".\installer\installer.iss"
 
 Write-Host ""
 Write-Host "Fortnite Splash Maker - v$Version Installer Build" -ForegroundColor Cyan
@@ -11,11 +14,11 @@ Write-Host "==================================================" -ForegroundColor
 Write-Host ""
 
 if (-not (Test-Path $DistExe)) {
-    throw "EXE bulunamadi: $DistExe`nOnce build.ps1 ile uygulamayi build edin."
+    throw "EXE bulunamadi: $DistExe`nOnce .\scripts\build.ps1 ile uygulamayi build edin."
 }
 
 if (-not (Test-Path $IssFile)) {
-    throw "installer.iss bulunamadi."
+    throw "installer\installer.iss bulunamadi."
 }
 
 $PossibleIsccPaths = @(

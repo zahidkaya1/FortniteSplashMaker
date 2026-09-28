@@ -2,6 +2,7 @@
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "zahidkaya1"
 #define MyAppExeName "FortniteSplashMaker.exe"
+#define ProjectRoot ".."
 
 [Setup]
 AppId={{9F7D3F5E-9D93-4B2B-8C1D-6E6767A6E9D1}
@@ -14,9 +15,9 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=release
+OutputDir={#ProjectRoot}\release
 OutputBaseFilename=FortniteSplashMaker-v1.0.0-Setup
-SetupIconFile=assets\app_icon.ico
+SetupIconFile={#ProjectRoot}\assets\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
 SolidCompression=yes
@@ -41,7 +42,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Masaüstü kısayolu oluştur"; GroupDescription: "Ek seçenekler:"; Flags: unchecked
 
 [Files]
-Source: "dist\FortniteSplashMaker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ProjectRoot}\dist\FortniteSplashMaker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Dirs]
 Name: "{app}\library"
