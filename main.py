@@ -3,11 +3,14 @@ import json
 import os
 import subprocess
 import sys
+from collections import deque
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 from PIL import Image, ImageOps, UnidentifiedImageError
+
+from splash_files import apply_splash, read_png, restore_previous_splash
 
 
 # ============================================================
@@ -42,6 +45,11 @@ ASSETS_DIR = RESOURCE_DIR / "assets"
 CURRENT_SEASON_SPLASH_PATH = ASSETS_DIR / "current_season_splash.png"
 APP_ICON_PATH = ASSETS_DIR / "app_icon.ico"
 SETTINGS_PATH = APP_DIR / "settings.json"
+# Kurulum/portable klasöründen bağımsız: yeniden kurulum yedekleri silmez.
+BACKUP_DIR = (
+    Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
+    / "FortniteSplashMaker" / "backups"
+)
 
 SUPPORTED_FILES = "*.png *.jpg *.jpeg *.webp *.bmp"
 
@@ -146,11 +154,10 @@ class FortniteSplashMaker(ctk.CTk):
         self.library_preview_image = None
         self.library_card_images = []
 
-        # Tk/CustomTkinter resimleri bazen widget yeniden çizilirken
-        # gecikmeli olarak kullanılabiliyor. Eski CTkImage nesnelerini
-        # uygulama kapanana kadar canlı tutarak "pyimageX doesn't exist"
-        # hatasını tamamen engelliyoruz.
-        self.image_reference_pool = []
+        # Gecikmeli Tk yeniden çizimleri için son görsellerin referanslarını
+        # tutuyoruz. Havuz sınırlı olduğu için uzun kullanımda büyümez.
+        # Görüntülenen kartlar ayrıca library_card_images içinde saklanır.
+        self.image_reference_pool = deque(maxlen=256)
 
         self.toast_frame = None
 
@@ -443,23 +450,7 @@ class FortniteSplashMaker(ctk.CTk):
         self.preview_box.grid_propagate(False)
         self.preview_box.pack_propagate(False)
 
-        self.preview_label = ctk.CTkLabel(
-            self.preview_box,
-            width=460,
-            height=300,
-            text=(
-                "Bir görsel seçerek başla\n\n"
-                "PNG • JPG • WEBP • BMP"
-            ),
-            text_color="gray60",
-            font=ctk.CTkFont(size=16)
-        )
-
-        self.preview_label.place(
-            relx=0.5,
-            rely=0.5,
-            anchor="center"
-        )
+        self.create_empty_creator_preview()
 
         self.file_info = ctk.CTkLabel(
             panel,
@@ -602,14 +593,14 @@ class FortniteSplashMaker(ctk.CTk):
             )
         ).place(
             x=20,
-            y=286
+            y=271
         )
 
         ctk.CTkButton(
             panel,
             text="Fortnite'a Uygula",
             width=500,
-            height=43,
+            height=38,
             font=ctk.CTkFont(
                 size=15,
                 weight="bold"
@@ -617,31 +608,44 @@ class FortniteSplashMaker(ctk.CTk):
             command=self.apply_to_fortnite
         ).place(
             x=20,
-            y=321
+            y=306
         )
 
         ctk.CTkButton(
             panel,
             text="Kütüphaneye Ekle",
             width=500,
-            height=38,
+            height=32,
             command=self.add_current_to_library
         ).place(
             x=20,
-            y=374
+            y=352
         )
 
         ctk.CTkButton(
             panel,
-            text="Orijinal Fortnite Splash'ini Geri Yükle",
+            text="Yedeklenen Splash'i Geri Yükle",
             width=500,
-            height=36,
+            height=32,
             fg_color="transparent",
             border_width=1,
-            command=self.restore_original
+            command=self.restore_previous
         ).place(
             x=20,
-            y=422
+            y=390
+        )
+
+        ctk.CTkButton(
+            panel,
+            text="Paketle Gelen Sezon Görselini Uygula",
+            width=500,
+            height=32,
+            fg_color="transparent",
+            border_width=1,
+            command=self.apply_bundled_season
+        ).place(
+            x=20,
+            y=428
         )
 
         ctk.CTkButton(
@@ -755,18 +759,8 @@ class FortniteSplashMaker(ctk.CTk):
             y=18
         )
 
-        self.library_preview_label = ctk.CTkLabel(
-            preview_panel,
-            width=LIB_PREVIEW_IMAGE_W,
-            height=LIB_PREVIEW_IMAGE_H,
-            text="Bir görsel seç",
-            text_color="gray60"
-        )
-
-        self.library_preview_label.place(
-            x=25,
-            y=66
-        )
+        self.library_preview_panel = preview_panel
+        self.create_empty_library_preview()
 
         self.library_name_label = ctk.CTkLabel(
             preview_panel,
@@ -844,13 +838,32 @@ class FortniteSplashMaker(ctk.CTk):
             self.splash_path
         ).parent
 
-        if not splash_parent.exists():
+        if not splash_parent.is_dir():
             messagebox.showerror(
                 "Fortnite yolu geçersiz",
                 (
                     "Easy Anti-Cheat klasörü artık bulunamıyor.\n\n"
                     "Fortnite güncellenmiş veya taşınmış olabilir. "
                     "Fortnite klasörünü yeniden seç."
+                )
+            )
+            return False
+
+        target = Path(self.splash_path)
+        if target.is_symlink():
+            messagebox.showerror(
+                "Geçersiz splash dosyası",
+                "SplashScreen.png bir sembolik bağlantı. Gerçek Fortnite klasörünü seç."
+            )
+            return False
+
+        if not target.is_file():
+            messagebox.showerror(
+                "Splash dosyası bulunamadı",
+                (
+                    "Fortnite klasörü mevcut ancak SplashScreen.png dosyası "
+                    "bulunamadı.\n\nFortnite kurulumunu kontrol et veya "
+                    "klasörü yeniden seç."
                 )
             )
             return False
@@ -1039,26 +1052,31 @@ class FortniteSplashMaker(ctk.CTk):
         )
 
         if (
-            self.fortnite_install_path is not None
-            and Path(
-                self.fortnite_install_path
-            ).exists()
+            self.splash_path is not None
+            and Path(self.splash_path).is_file()
         ):
-            text = (
-                "Aktif ve kayıtlı yol:\n"
-                f"{self.fortnite_install_path}"
+            active_path = (
+                self.fortnite_install_path
+                if self.fortnite_install_path is not None
+                else Path(self.splash_path).parent
             )
+            label = (
+                "Aktif ve kayıtlı yol:"
+                if saved_path and Path(saved_path) == Path(active_path)
+                else "Aktif Fortnite yolu:"
+            )
+            text = f"{label}\n{active_path}"
 
         elif saved_path:
             text = (
-                "Kayıtlı yol şu anda geçerli değil:\n"
+                "Kaydedilen Fortnite yolu şu anda kullanılamıyor:\n"
                 f"{saved_path}"
             )
 
         else:
             text = (
-                "Henüz manuel olarak kaydedilmiş "
-                "bir Fortnite yolu yok."
+                "Henüz bir Fortnite yolu algılanmadı "
+                "veya kaydedilmedi."
             )
 
         self.settings_path_label.configure(
@@ -1172,11 +1190,42 @@ class FortniteSplashMaker(ctk.CTk):
             self.input_path = None
             self.original_image = None
             self.processed_image = None
+            self.clear_creator_preview()
+            self.set_status("Görsel yüklenemedi.")
 
             messagebox.showerror(
                 "Görsel açılamadı",
                 str(error)
             )
+
+    def create_empty_creator_preview(self):
+        """Tamamen boş bir önizleme widget'ı oluşturur.
+
+        CTkLabel üzerinde image=None bazen Tk'nin eski görüntüyü ekranda
+        bırakmasına neden olabildiğinden widget'ı yeniden oluşturuyoruz.
+        """
+        previous = getattr(self, "preview_label", None)
+        if previous is not None:
+            previous.destroy()
+
+        self.preview_label = ctk.CTkLabel(
+            self.preview_box,
+            width=460,
+            height=300,
+            text="Bir görsel seçerek başla\n\nPNG • JPG • WEBP • BMP",
+            text_color="gray60",
+            font=ctk.CTkFont(size=16)
+        )
+        self.preview_label.place(relx=0.5, rely=0.5, anchor="center")
+
+    def clear_creator_preview(self):
+        """Geçersiz seçimde görsel verisini ve görüntü widget'ını sıfırlar."""
+        if self.preview_ctk_image is not None:
+            self.image_reference_pool.append(self.preview_ctk_image)
+        self.preview_ctk_image = None
+        self.create_empty_creator_preview()
+        self.file_info.configure(text="Henüz görsel seçilmedi")
+        self.preview_label.update_idletasks()
 
     def process_image(self):
         if self.original_image is None:
@@ -1206,6 +1255,9 @@ class FortniteSplashMaker(ctk.CTk):
             ),
             Image.Resampling.LANCZOS
         )
+
+        if self.preview_ctk_image is not None:
+            self.image_reference_pool.append(self.preview_ctk_image)
 
         self.preview_ctk_image = ctk.CTkImage(
             light_image=preview,
@@ -1757,12 +1809,16 @@ class FortniteSplashMaker(ctk.CTk):
         ):
             return
 
-        # Önce mevcut kartlardaki resim referanslarını kalıcı havuza al.
-        # Widget'lar yok edildikten sonra bile Tk tarafında gecikmeli redraw
-        # olabildiği için eski CTkImage nesnelerini GC'ye bırakmıyoruz.
-        self.image_reference_pool.extend(
-            self.library_card_images
-        )
+        # Kartlar yok edildikten sonra kısa süre daha referanslarını koru.
+        # Havuz sınırlı, mevcut kartların referansları ayrıca tutuluyor.
+        self.image_reference_pool.extend(self.library_card_images)
+
+        # Harici olarak silinmiş bir görsel seçiliyse eski önizlemeyi kaldır.
+        if (
+            self.library_selected_path is not None
+            and not Path(self.library_selected_path).is_file()
+        ):
+            self.clear_library_selection()
 
         for child in self.library_scroll.winfo_children():
             child.destroy()
@@ -1843,13 +1899,18 @@ class FortniteSplashMaker(ctk.CTk):
         card.pack_propagate(False)
 
         try:
-            image = self.load_rgba_image(
-                path
+            image = self.load_rgba_image(path)
+            # CTkImage yalnızca küçük görseli saklasın; 4K kaynaklar
+            # kütüphane yenilendikçe bellekte birikmesin.
+            thumbnail = ImageOps.fit(
+                image,
+                (CARD_THUMB_W, CARD_THUMB_H),
+                method=Image.Resampling.LANCZOS
             )
 
             ctk_image = ctk.CTkImage(
-                light_image=image,
-                dark_image=image,
+                light_image=thumbnail,
+                dark_image=thumbnail,
                 size=(
                     CARD_THUMB_W,
                     CARD_THUMB_H
@@ -1898,7 +1959,7 @@ class FortniteSplashMaker(ctk.CTk):
             )
 
         if kind == "season":
-            label_text = "★ Aktif Sezon Splash"
+            label_text = "★ Paketle Gelen Sezon"
         else:
             name = path.stem
 
@@ -1924,6 +1985,33 @@ class FortniteSplashMaker(ctk.CTk):
 
         return card
 
+    def create_empty_library_preview(self):
+        """Eski Tk görselini tamamen kaldıran boş kütüphane önizlemesi."""
+        previous = getattr(self, "library_preview_label", None)
+        if previous is not None:
+            previous.destroy()
+
+        self.library_preview_label = ctk.CTkLabel(
+            self.library_preview_panel,
+            width=LIB_PREVIEW_IMAGE_W,
+            height=LIB_PREVIEW_IMAGE_H,
+            text="Bir görsel seç",
+            text_color="gray60"
+        )
+        self.library_preview_label.place(x=25, y=66)
+
+    def clear_library_selection(self):
+        """Silinmiş/seçimi kaldırılmış karta ait önizlemeyi temizler."""
+        if self.library_preview_image is not None:
+            self.image_reference_pool.append(self.library_preview_image)
+
+        self.library_selected_path = None
+        self.library_selected_kind = None
+        self.library_preview_image = None
+        self.create_empty_library_preview()
+        self.library_name_label.configure(text="-")
+        self.library_preview_label.update_idletasks()
+
     def select_library_item(
         self,
         path,
@@ -1944,13 +2032,16 @@ class FortniteSplashMaker(ctk.CTk):
             return
 
         try:
-            image = self.load_rgba_image(
-                path
+            image = self.load_rgba_image(path)
+            thumbnail = ImageOps.fit(
+                image,
+                (LIB_PREVIEW_IMAGE_W, LIB_PREVIEW_IMAGE_H),
+                method=Image.Resampling.LANCZOS
             )
 
             new_preview_image = ctk.CTkImage(
-                light_image=image,
-                dark_image=image,
+                light_image=thumbnail,
+                dark_image=thumbnail,
                 size=(
                     LIB_PREVIEW_IMAGE_W,
                     LIB_PREVIEW_IMAGE_H
@@ -1987,7 +2078,7 @@ class FortniteSplashMaker(ctk.CTk):
             self.library_selected_kind = kind
 
             if kind == "season":
-                display_name = "Aktif Sezon Fortnite Splash"
+                display_name = "Paketle Gelen Sezon Görseli"
             else:
                 display_name = path.stem
 
@@ -2045,9 +2136,10 @@ class FortniteSplashMaker(ctk.CTk):
                 selected_path
             )
 
-            self.save_rgba_png(
+            apply_splash(
                 image,
-                self.splash_path
+                self.splash_path,
+                BACKUP_DIR
             )
 
             self.set_status(
@@ -2062,10 +2154,11 @@ class FortniteSplashMaker(ctk.CTk):
 
         except PermissionError:
             messagebox.showerror(
-                "Yönetici izni gerekli",
+                "Dosya erişim izni gerekli",
                 (
-                    "Fortnite klasörüne yazma izni yok.\n\n"
-                    "Uygulamayı yönetici olarak çalıştır."
+                    "Fortnite dosyasına veya yedek klasörüne erişilemedi.\n\n"
+                    "Klasör izinlerini ve dosyanın başka bir programda "
+                    "kullanılıp kullanılmadığını kontrol et."
                 )
             )
 
@@ -2085,10 +2178,10 @@ class FortniteSplashMaker(ctk.CTk):
 
         if self.library_selected_kind == "season":
             messagebox.showinfo(
-                "Aktif Sezon Splash",
+                "Paketle Gelen Sezon Görseli",
                 (
-                    "Bu görsel uygulamanın sabit geri yükleme "
-                    "splash'idir ve kütüphaneden silinemez."
+                    "Bu görsel uygulamayla birlikte gelen sezon "
+                    "görselidir ve kütüphaneden silinemez."
                 )
             )
             return
@@ -2114,30 +2207,7 @@ class FortniteSplashMaker(ctk.CTk):
             if selected_path.exists():
                 selected_path.unlink()
 
-            self.library_selected_path = None
-            self.library_selected_kind = None
-
-            # Eski preview resmi Tk redraw tamamlanana kadar değil,
-            # uygulama kapanana kadar referans havuzunda tutulur.
-            if self.library_preview_image is not None:
-                self.image_reference_pool.append(
-                    self.library_preview_image
-                )
-
-            self.library_preview_label.configure(
-                image=None,
-                text="Bir görsel seç"
-            )
-
-            self.library_preview_label._splash_image_ref = None
-            self.library_preview_label.update_idletasks()
-
-            self.library_preview_image = None
-
-            self.library_name_label.configure(
-                text="-"
-            )
-
+            self.clear_library_selection()
             self.refresh_library()
 
             self.set_status(
@@ -2187,104 +2257,49 @@ class FortniteSplashMaker(ctk.CTk):
     # ========================================================
 
     def file_sha256(self, path):
+        """Yalnızca okunabilen/geçerli PNG görsellerine durum kimliği ver."""
         try:
-            sha = hashlib.sha256()
-
-            with open(path, "rb") as file:
-                while True:
-                    chunk = file.read(
-                        1024 * 1024
-                    )
-
-                    if not chunk:
-                        break
-
-                    sha.update(chunk)
-
-            return sha.hexdigest()
-
-        except OSError:
+            return hashlib.sha256(read_png(path)).hexdigest()
+        except (OSError, ValueError):
             return None
 
     def update_active_splash_status(self):
-        if (
-            self.splash_path is None
-            or
-            not Path(
-                self.splash_path
-            ).exists()
-        ):
-            self.current_splash_state = "unknown"
+        """Doğrulanamayan bir dosyayı yanlışlıkla 'özel' diye işaretleme."""
+        target = Path(self.splash_path) if self.splash_path else None
 
-            if hasattr(
-                self,
-                "splash_state_badge"
-            ):
-                self.splash_state_badge.configure(
-                    text="Splash durumu bilinmiyor",
-                    text_color="gray70"
-                )
-
-            if hasattr(
-                self,
-                "settings_splash_status_label"
-            ):
-                self.settings_splash_status_label.configure(
-                    text=(
-                        "Aktif splash durumu: "
-                        "Fortnite bulunamadı."
-                    )
-                )
-
-            return
-
-        current_hash = self.file_sha256(
-            self.splash_path
-        )
-
-        season_hash = None
-
-        if CURRENT_SEASON_SPLASH_PATH.exists():
-            season_hash = self.file_sha256(
-                CURRENT_SEASON_SPLASH_PATH
-            )
-
-        if (
-            current_hash
-            and
-            season_hash
-            and
-            current_hash == season_hash
-        ):
-            self.current_splash_state = "season"
-            badge_text = "Aktif Sezon Splash ✓"
-            settings_text = (
-                "Aktif splash durumu: "
-                "Aktif Sezon Splash kullanılıyor."
-            )
+        if target is None or not target.is_file() or target.is_symlink():
+            state = "unknown"
+            badge_text = "Splash durumu bilinmiyor"
+            settings_text = "Aktif splash durumu: Fortnite splash dosyası bulunamadı."
         else:
-            self.current_splash_state = "custom"
-            badge_text = "Özel Splash Aktif"
-            settings_text = (
-                "Aktif splash durumu: "
-                "Özel bir splash kullanılıyor."
+            current_hash = self.file_sha256(target)
+            season_hash = (
+                self.file_sha256(CURRENT_SEASON_SPLASH_PATH)
+                if CURRENT_SEASON_SPLASH_PATH.is_file() else None
             )
 
-        if hasattr(
-            self,
-            "splash_state_badge"
-        ):
-            self.splash_state_badge.configure(
-                text=badge_text
-            )
+            if current_hash is None:
+                state = "unknown"
+                badge_text = "Splash durumu bilinmiyor"
+                settings_text = "Aktif splash durumu: Fortnite splash dosyası okunamadı veya geçersiz."
+            elif season_hash is None:
+                state = "unknown"
+                badge_text = "Splash durumu bilinmiyor"
+                settings_text = "Aktif splash durumu: Paketle gelen sezon görseli doğrulanamadı."
+            elif current_hash == season_hash:
+                state = "season"
+                badge_text = "Paket Görseli Aktif ✓"
+                settings_text = "Aktif splash durumu: Paketle gelen sezon görseli kullanılıyor."
+            else:
+                state = "custom"
+                badge_text = "Özel Splash Aktif"
+                settings_text = "Aktif splash durumu: Paket görselinden farklı bir splash kullanılıyor."
 
-        if hasattr(
-            self,
-            "settings_splash_status_label"
-        ):
-            self.settings_splash_status_label.configure(
-                text=settings_text
-            )
+        self.current_splash_state = state
+        if hasattr(self, "splash_state_badge"):
+            self.splash_state_badge.configure(text=badge_text)
+        if hasattr(self, "settings_splash_status_label"):
+            self.settings_splash_status_label.configure(text=settings_text)
 
     # ========================================================
     # FORTNITE DETECTION
@@ -2513,6 +2528,9 @@ class FortniteSplashMaker(ctk.CTk):
         )
 
     def set_fortnite_not_found(self):
+        # Eski/geçersiz yolun yanlışlıkla sonraki işlemlerde kullanılmasını engelle.
+        self.fortnite_install_path = None
+        self.splash_path = None
         self.fortnite_badge.configure(
             text="Fortnite bulunamadı"
         )
@@ -2613,8 +2631,10 @@ class FortniteSplashMaker(ctk.CTk):
             return
 
         try:
-            self.save_processed(
-                self.splash_path
+            apply_splash(
+                self.processed_image,
+                self.splash_path,
+                BACKUP_DIR
             )
 
             self.set_status(
@@ -2629,10 +2649,11 @@ class FortniteSplashMaker(ctk.CTk):
 
         except PermissionError:
             messagebox.showerror(
-                "Yönetici izni gerekli",
+                "Dosya erişim izni gerekli",
                 (
-                    "Fortnite klasörüne yazma izni yok.\n\n"
-                    "Uygulamayı yönetici olarak çalıştır."
+                    "Fortnite dosyasına veya yedek klasörüne erişilemedi.\n\n"
+                    "Klasör izinlerini ve dosyanın başka bir programda "
+                    "kullanılıp kullanılmadığını kontrol et."
                 )
             )
 
@@ -2642,13 +2663,34 @@ class FortniteSplashMaker(ctk.CTk):
                 str(error)
             )
 
-    def restore_original(self):
+    def restore_previous(self):
+        if not self.fortnite_target_is_ready():
+            return
+
+        if not self.ask_confirm(
+            "Yedeklenen Splash",
+            "Bu kurulumda ilk değişiklikten önce saklanan splash geri yüklensin mi?\n\n"
+            "Bu yedek, daha önce özelleştirilmiş bir görsel de olabilir.",
+            confirm_text="Geri Yükle",
+            cancel_text="Vazgeç"
+        ):
+            return
+
+        try:
+            restore_previous_splash(self.splash_path, BACKUP_DIR)
+            self.set_status("Yedeklenen splash geri yüklendi.")
+            self.show_toast("✓ Yedeklenen splash geri yüklendi.")
+            self.update_active_splash_status()
+        except Exception as error:
+            messagebox.showerror("Geri yüklenemedi", str(error))
+
+    def apply_bundled_season(self):
         if not self.fortnite_target_is_ready():
             return
 
         if not CURRENT_SEASON_SPLASH_PATH.exists():
             messagebox.showerror(
-                "Aktif sezon splash'i bulunamadı",
+                "Paketle gelen sezon görseli bulunamadı",
                 (
                     "assets/current_season_splash.png bulunamadı.\n\n"
                     "main.py ile birlikte assets klasörünü de "
@@ -2658,12 +2700,12 @@ class FortniteSplashMaker(ctk.CTk):
             return
 
         answer = self.ask_confirm(
-            "Aktif Sezon Splash",
+            "Paketle Gelen Sezon Görseli",
             (
-                "Gönderdiğin güncel Fortnite splash'i "
-                "geri yüklensin mi?"
+                "Uygulamayla gelen sezon görseli uygulansın mı?\n\n"
+                "Bu görsel, Fortnite'ın güncel sezonuyla aynı olmayabilir."
             ),
-            confirm_text="Geri Yükle",
+            confirm_text="Uygula",
             cancel_text="Vazgeç"
         )
 
@@ -2675,27 +2717,29 @@ class FortniteSplashMaker(ctk.CTk):
                 CURRENT_SEASON_SPLASH_PATH
             )
 
-            self.save_rgba_png(
+            apply_splash(
                 image,
-                self.splash_path
+                self.splash_path,
+                BACKUP_DIR
             )
 
             self.set_status(
-                "Aktif sezon Fortnite splash'i geri yüklendi."
+                "Paketle gelen sezon görseli uygulandı."
             )
 
             self.show_toast(
-                "✓ Aktif sezon splash'i geri yüklendi."
+                "✓ Paketle gelen sezon görseli uygulandı."
             )
 
             self.update_active_splash_status()
 
         except PermissionError:
             messagebox.showerror(
-                "Yönetici izni gerekli",
+                "Dosya erişim izni gerekli",
                 (
-                    "Fortnite klasörüne yazma izni yok.\n\n"
-                    "Uygulamayı yönetici olarak çalıştır."
+                    "Fortnite dosyasına veya yedek klasörüne erişilemedi.\n\n"
+                    "Klasör izinlerini ve dosyanın başka bir programda "
+                    "kullanılıp kullanılmadığını kontrol et."
                 )
             )
 
