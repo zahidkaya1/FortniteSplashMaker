@@ -272,3 +272,69 @@ class V11Regressions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class V11CreatorLayout(unittest.TestCase):
+    """Widget'ları oluşturmadan çağrıları taklit ederek yerleşim taşmasını yakala."""
+
+    def test_creator_controls_fit_and_keep_original_actions(self):
+        created = []
+
+        class Widget:
+            def __init__(self, master, **options):
+                self.master = master
+                self.options = options
+                self.placement = {}
+                created.append(self)
+
+            def place(self, **options):
+                self.placement = options
+
+            def grid_propagate(self, _value):
+                pass
+
+            def pack_propagate(self, _value):
+                pass
+
+            def destroy(self):
+                pass
+
+        obj = main.FortniteSplashMaker.__new__(main.FortniteSplashMaker)
+        obj.main_container = object()
+        obj.preview_label = None
+
+        with (
+            patch.object(main.ctk, "CTkFrame", Widget, create=True),
+            patch.object(main.ctk, "CTkLabel", Widget, create=True),
+            patch.object(main.ctk, "CTkButton", Widget, create=True),
+            patch.object(main.ctk, "CTkFont", lambda **_kwargs: None, create=True),
+        ):
+            obj.create_creator_page()
+
+        # Bütün açık koordinatlı bileşenler parent kartının içine sığmalı.
+        for widget in created:
+            parent = widget.master
+            if not hasattr(parent, "options"):
+                continue
+            for dimension, coordinate in (("width", "x"), ("height", "y")):
+                length = widget.options.get(dimension)
+                available = parent.options.get(dimension)
+                origin = widget.placement.get(coordinate)
+                if isinstance(length, int) and isinstance(available, int) and isinstance(origin, int):
+                    self.assertLessEqual(origin + length, available, widget.options.get("text"))
+
+        expected_actions = {
+            "Görsel Seç": "select_image",
+            "Fortnite Klasörünü Değiştir": "select_fortnite_folder",
+            "Fortnite'a Uygula": "apply_to_fortnite",
+            "Kütüphaneye Ekle": "add_current_to_library",
+            "PNG Olarak Kaydet": "save_as",
+            "Yedekten Geri Yükle": "restore_previous",
+            "Paket Sezon Görselini Uygula": "apply_bundled_season",
+        }
+        actual_actions = {
+            widget.options["text"]: widget.options["command"].__name__
+            for widget in created
+            if "command" in widget.options
+        }
+        self.assertEqual(actual_actions, expected_actions)

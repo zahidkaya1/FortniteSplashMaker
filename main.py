@@ -53,6 +53,20 @@ BACKUP_DIR = (
 
 SUPPORTED_FILES = "*.png *.jpg *.jpeg *.webp *.bmp"
 
+# ============================================================
+# v1.1 UI - COLOR PALETTE
+# ============================================================
+UI_BG = "#101722"
+UI_SURFACE = "#1B2635"
+UI_SURFACE_RAISED = "#202F42"
+UI_SURFACE_DARK = "#111D2B"
+UI_BORDER = "#304158"
+UI_ACCENT = "#2877CF"
+UI_ACCENT_HOVER = "#1C64B3"
+UI_TEXT = "#F0F5FC"
+UI_TEXT_SECONDARY = "#A7B6CA"
+UI_TEXT_MUTED = "#7F91AA"
+
 
 # ============================================================
 # FIXED UI SIZES
@@ -120,6 +134,8 @@ class FortniteSplashMaker(ctk.CTk):
 
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
+
+        self.configure(fg_color=UI_BG)
 
         self.update_idletasks()
 
@@ -267,59 +283,44 @@ class FortniteSplashMaker(ctk.CTk):
         self.save_settings()
 
     def create_header(self):
+        # Global başlık ve durum kartları; bütün sayfalarda görünür.
         ctk.CTkLabel(
             self,
             text="Fortnite Splash Maker",
-            font=ctk.CTkFont(
-                size=29,
-                weight="bold"
-            )
-        ).place(
-            x=40,
-            y=28
-        )
+            font=ctk.CTkFont(size=29, weight="bold"),
+            text_color=UI_TEXT,
+        ).place(x=40, y=27)
 
         ctk.CTkLabel(
             self,
-            text=(
-                "Fortnite başlangıç ekranlarını "
-                "hazırla, sakla ve tek tıkla uygula"
-            ),
-            text_color="gray70",
-            font=ctk.CTkFont(size=14)
-        ).place(
-            x=40,
-            y=72
-        )
+            text="Fortnite başlangıç ekranlarını hazırla, sakla ve güvenle uygula",
+            font=ctk.CTkFont(size=14),
+            text_color=UI_TEXT_SECONDARY,
+        ).place(x=40, y=72)
 
         self.fortnite_badge = ctk.CTkLabel(
             self,
             text="Fortnite aranıyor...",
-            width=150,
-            height=30,
-            corner_radius=8,
-            fg_color=("gray85", "gray25")
+            width=186,
+            height=29,
+            corner_radius=9,
+            fg_color=UI_SURFACE_RAISED,
+            text_color=UI_TEXT_SECONDARY,
+            font=ctk.CTkFont(size=12, weight="bold"),
         )
-
-        self.fortnite_badge.place(
-            x=990,
-            y=45
-        )
+        self.fortnite_badge.place(x=950, y=42)
 
         self.splash_state_badge = ctk.CTkLabel(
             self,
             text="Splash durumu bilinmiyor",
-            width=180,
-            height=26,
-            corner_radius=8,
-            fg_color=("gray85", "gray25"),
-            text_color="gray70"
+            width=186,
+            height=27,
+            corner_radius=9,
+            fg_color=UI_SURFACE_RAISED,
+            text_color=UI_TEXT_SECONDARY,
+            font=ctk.CTkFont(size=12),
         )
-
-        self.splash_state_badge.place(
-            x=960,
-            y=82
-        )
+        self.splash_state_badge.place(x=950, y=77)
 
     # ========================================================
     # NAVIGATION
@@ -328,21 +329,20 @@ class FortniteSplashMaker(ctk.CTk):
     def create_navigation(self):
         self.nav = ctk.CTkSegmentedButton(
             self,
-            values=[
-                "Oluştur",
-                "Kütüphane",
-                "Ayarlar"
-            ],
+            values=["Oluştur", "Kütüphane", "Ayarlar"],
             variable=self.page_mode,
-            width=290,
-            height=30,
-            command=self.show_page
+            width=350,
+            height=36,
+            corner_radius=9,
+            fg_color=UI_SURFACE,
+            selected_color=UI_ACCENT,
+            selected_hover_color=UI_ACCENT_HOVER,
+            unselected_color=UI_SURFACE,
+            unselected_hover_color=UI_SURFACE_RAISED,
+            text_color=UI_TEXT,
+            command=self.show_page,
         )
-
-        self.nav.place(
-            x=(WINDOW_WIDTH - 290) // 2,
-            y=130
-        )
+        self.nav.place(x=(WINDOW_WIDTH - 350) // 2, y=125)
 
     def show_page(self, page):
         self.page_mode.set(page)
@@ -375,14 +375,11 @@ class FortniteSplashMaker(ctk.CTk):
         self.main_container = ctk.CTkFrame(
             self,
             width=MAIN_WIDTH,
-            height=MAIN_HEIGHT
+            height=MAIN_HEIGHT,
+            corner_radius=13,
+            fg_color=UI_BG,
         )
-
-        self.main_container.place(
-            x=MAIN_X,
-            y=MAIN_Y
-        )
-
+        self.main_container.place(x=MAIN_X, y=MAIN_Y)
         self.main_container.grid_propagate(False)
         self.main_container.pack_propagate(False)
 
@@ -412,76 +409,97 @@ class FortniteSplashMaker(ctk.CTk):
         panel = ctk.CTkFrame(
             self.creator_page,
             width=CREATOR_LEFT_W,
-            height=CREATOR_LEFT_H
+            height=CREATOR_LEFT_H,
+            corner_radius=16,
+            fg_color=UI_SURFACE,
+            border_width=1,
+            border_color=UI_BORDER,
         )
-
-        panel.place(
-            x=CREATOR_LEFT_X,
-            y=CREATOR_LEFT_Y
-        )
-
+        panel.place(x=CREATOR_LEFT_X, y=CREATOR_LEFT_Y)
         panel.grid_propagate(False)
         panel.pack_propagate(False)
 
         ctk.CTkLabel(
             panel,
-            text="Önizleme",
-            font=ctk.CTkFont(
-                size=17,
-                weight="bold"
-            )
-        ).place(
-            x=20,
-            y=16
-        )
+            text="Görsel Önizleme",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color=UI_TEXT,
+        ).place(x=20, y=20)
 
+        # Statik format etiketi: görselin işleneceği gerçek çıkış biçimi.
+        ctk.CTkLabel(
+            panel,
+            width=152,
+            height=26,
+            corner_radius=8,
+            fg_color=UI_SURFACE_RAISED,
+            text="16:9  •  800×450",
+            text_color=UI_TEXT_SECONDARY,
+            font=ctk.CTkFont(size=12),
+        ).place(x=345, y=19)
+
+        # Tam 16:9'luk 480x270 önizleme alanı.
         self.preview_box = ctk.CTkFrame(
             panel,
             width=480,
-            height=320,
-            fg_color="#151515"
+            height=270,
+            corner_radius=12,
+            fg_color=UI_SURFACE_DARK,
+            border_width=1,
+            border_color=UI_BORDER,
         )
-
-        self.preview_box.place(
-            x=20,
-            y=52
-        )
-
+        self.preview_box.place(x=20, y=66)
         self.preview_box.grid_propagate(False)
         self.preview_box.pack_propagate(False)
-
         self.create_empty_creator_preview()
+
+        ctk.CTkLabel(
+            panel,
+            text="SEÇİLİ DOSYA",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=UI_TEXT_MUTED,
+        ).place(x=20, y=354)
 
         self.file_info = ctk.CTkLabel(
             panel,
             width=480,
             height=28,
             text="Henüz görsel seçilmedi",
+            font=ctk.CTkFont(size=13),
             anchor="w",
-            text_color="gray65"
+            text_color=UI_TEXT_SECONDARY,
         )
+        self.file_info.place(x=20, y=377)
 
-        self.file_info.place(
-            x=20,
-            y=390
-        )
-
-        self.output_info = ctk.CTkLabel(
+        # Kullanıcıya işlemin dosya formatını değiştirdiğini net gösterir.
+        format_frame = ctk.CTkFrame(
             panel,
             width=480,
-            height=24,
-            text=(
-                "Otomatik yerleşim • "
-                "800×450 • PNG • RGBA"
-            ),
-            anchor="w",
-            text_color="gray55"
+            height=66,
+            corner_radius=10,
+            fg_color=UI_SURFACE_DARK,
         )
+        format_frame.place(x=20, y=420)
+        format_frame.grid_propagate(False)
+        format_frame.pack_propagate(False)
 
-        self.output_info.place(
-            x=20,
-            y=424
+        ctk.CTkLabel(
+            format_frame,
+            text="FORTNITE İÇİN HAZIRLANIR",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#8FC3F9",
+        ).place(x=14, y=9)
+
+        self.output_info = ctk.CTkLabel(
+            format_frame,
+            width=450,
+            height=23,
+            text="Merkezden kırpma   •   800×450   •   PNG / RGBA",
+            anchor="w",
+            text_color=UI_TEXT_SECONDARY,
+            font=ctk.CTkFont(size=12),
         )
+        self.output_info.place(x=14, y=33)
 
     # ========================================================
     # CREATOR RIGHT
@@ -491,175 +509,178 @@ class FortniteSplashMaker(ctk.CTk):
         panel = ctk.CTkFrame(
             self.creator_page,
             width=CREATOR_RIGHT_W,
-            height=CREATOR_RIGHT_H
+            height=CREATOR_RIGHT_H,
+            corner_radius=16,
+            fg_color=UI_SURFACE,
+            border_width=1,
+            border_color=UI_BORDER,
         )
-
-        panel.place(
-            x=CREATOR_RIGHT_X,
-            y=CREATOR_RIGHT_Y
-        )
-
+        panel.place(x=CREATOR_RIGHT_X, y=CREATOR_RIGHT_Y)
         panel.grid_propagate(False)
         panel.pack_propagate(False)
 
-        # Görsel
-        ctk.CTkLabel(
-            panel,
-            text="Görsel",
-            font=ctk.CTkFont(
-                size=17,
-                weight="bold"
-            )
-        ).place(
-            x=20,
-            y=18
-        )
+        def section_heading(text, y):
+            ctk.CTkLabel(
+                panel,
+                text=text,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color=UI_TEXT,
+            ).place(x=20, y=y)
 
+        section_heading("01   Görsel seçimi", 15)
         ctk.CTkButton(
             panel,
             text="Görsel Seç",
             width=500,
-            height=40,
-            command=self.select_image
-        ).place(
-            x=20,
-            y=52
-        )
+            height=42,
+            corner_radius=10,
+            fg_color=UI_SURFACE_RAISED,
+            hover_color="#304560",
+            border_width=1,
+            border_color=UI_BORDER,
+            text_color=UI_TEXT,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            command=self.select_image,
+        ).place(x=20, y=46)
 
         ctk.CTkLabel(
             panel,
+            text="PNG, JPG, WEBP, BMP  •  Otomatik 16:9 kırpma",
             width=500,
-            height=38,
-            text=(
-                "Görsel otomatik olarak 16:9 oranında "
-                "merkezden kırpılır ve Fortnite için hazırlanır."
-            ),
+            height=27,
             anchor="w",
-            justify="left",
-            wraplength=495,
-            text_color="gray65"
-        ).place(
-            x=20,
-            y=102
-        )
+            text_color=UI_TEXT_SECONDARY,
+            font=ctk.CTkFont(size=12),
+        ).place(x=20, y=95)
 
-        # Fortnite
-        ctk.CTkLabel(
-            panel,
-            text="Fortnite",
-            font=ctk.CTkFont(
-                size=17,
-                weight="bold"
-            )
-        ).place(
-            x=20,
-            y=164
-        )
+        ctk.CTkFrame(
+            panel, width=500, height=1, fg_color=UI_BORDER,
+        ).place(x=20, y=137)
 
+        section_heading("02   Fortnite kurulumu", 144)
         self.path_label = ctk.CTkLabel(
             panel,
-            width=500,
-            height=30,
             text="Fortnite aranıyor...",
+            width=500,
+            height=25,
             anchor="w",
-            text_color="gray65"
+            text_color=UI_TEXT_SECONDARY,
+            font=ctk.CTkFont(size=12),
         )
-
-        self.path_label.place(
-            x=20,
-            y=197
-        )
+        self.path_label.place(x=20, y=171)
 
         ctk.CTkButton(
             panel,
-            text="Fortnite Klasörünü Seç",
+            text="Fortnite Klasörünü Değiştir",
             width=500,
-            height=34,
+            height=33,
+            corner_radius=9,
             fg_color="transparent",
+            hover_color=UI_SURFACE_RAISED,
+            text_color=UI_TEXT,
             border_width=1,
-            command=self.select_fortnite_folder
-        ).place(
-            x=20,
-            y=232
-        )
+            border_color=UI_BORDER,
+            command=self.select_fortnite_folder,
+        ).place(x=20, y=198)
 
-        # İşlemler
-        ctk.CTkLabel(
-            panel,
-            text="İşlemler",
-            font=ctk.CTkFont(
-                size=17,
-                weight="bold"
-            )
-        ).place(
-            x=20,
-            y=271
-        )
+        ctk.CTkFrame(
+            panel, width=500, height=1, fg_color=UI_BORDER,
+        ).place(x=20, y=241)
 
+        section_heading("03   İşlemler", 248)
+
+        # Ekrandaki tek birincil eylem.
         ctk.CTkButton(
             panel,
             text="Fortnite'a Uygula",
             width=500,
-            height=38,
-            font=ctk.CTkFont(
-                size=15,
-                weight="bold"
-            ),
-            command=self.apply_to_fortnite
-        ).place(
-            x=20,
-            y=306
-        )
+            height=43,
+            corner_radius=10,
+            fg_color=UI_ACCENT,
+            hover_color=UI_ACCENT_HOVER,
+            font=ctk.CTkFont(size=15, weight="bold"),
+            command=self.apply_to_fortnite,
+        ).place(x=20, y=278)
 
         ctk.CTkButton(
             panel,
             text="Kütüphaneye Ekle",
-            width=500,
-            height=32,
-            command=self.add_current_to_library
-        ).place(
-            x=20,
-            y=352
-        )
-
-        ctk.CTkButton(
-            panel,
-            text="Yedeklenen Splash'i Geri Yükle",
-            width=500,
-            height=32,
-            fg_color="transparent",
-            border_width=1,
-            command=self.restore_previous
-        ).place(
-            x=20,
-            y=390
-        )
-
-        ctk.CTkButton(
-            panel,
-            text="Paketle Gelen Sezon Görselini Uygula",
-            width=500,
-            height=32,
-            fg_color="transparent",
-            border_width=1,
-            command=self.apply_bundled_season
-        ).place(
-            x=20,
-            y=428
-        )
+            width=243,
+            height=36,
+            corner_radius=9,
+            fg_color=UI_SURFACE_RAISED,
+            hover_color="#304560",
+            text_color=UI_TEXT,
+            command=self.add_current_to_library,
+        ).place(x=20, y=329)
 
         ctk.CTkButton(
             panel,
             text="PNG Olarak Kaydet",
+            width=243,
+            height=36,
+            corner_radius=9,
+            fg_color=UI_SURFACE_RAISED,
+            hover_color="#304560",
+            text_color=UI_TEXT,
+            command=self.save_as,
+        ).place(x=277, y=329)
+
+        # Yedek ve paket sezon görseli bilerek ayrı eylemler olarak kalır.
+        recovery_panel = ctk.CTkFrame(
+            panel,
             width=500,
-            height=32,
-            fg_color="transparent",
-            border_width=1,
-            command=self.save_as
-        ).place(
-            x=20,
-            y=466
+            height=113,
+            corner_radius=11,
+            fg_color=UI_SURFACE_DARK,
         )
+        recovery_panel.place(x=20, y=378)
+        recovery_panel.grid_propagate(False)
+        recovery_panel.pack_propagate(False)
+
+        ctk.CTkLabel(
+            recovery_panel,
+            text="04   Geri yükleme",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=UI_TEXT,
+        ).place(x=12, y=7)
+
+        ctk.CTkLabel(
+            recovery_panel,
+            text="İlk değişiklik öncesi yedek veya uygulamayla gelen sezon görseli",
+            font=ctk.CTkFont(size=11),
+            text_color=UI_TEXT_MUTED,
+            width=475,
+            anchor="w",
+        ).place(x=12, y=33)
+
+        ctk.CTkButton(
+            recovery_panel,
+            text="Yedekten Geri Yükle",
+            width=232,
+            height=37,
+            corner_radius=8,
+            fg_color="transparent",
+            hover_color=UI_SURFACE_RAISED,
+            border_width=1,
+            border_color=UI_BORDER,
+            text_color=UI_TEXT,
+            command=self.restore_previous,
+        ).place(x=12, y=66)
+
+        ctk.CTkButton(
+            recovery_panel,
+            text="Paket Sezon Görselini Uygula",
+            width=232,
+            height=37,
+            corner_radius=8,
+            fg_color="transparent",
+            hover_color=UI_SURFACE_RAISED,
+            border_width=1,
+            border_color=UI_BORDER,
+            text_color=UI_TEXT,
+            command=self.apply_bundled_season,
+        ).place(x=256, y=66)
 
     # ========================================================
     # LIBRARY PAGE
@@ -1211,9 +1232,9 @@ class FortniteSplashMaker(ctk.CTk):
         self.preview_label = ctk.CTkLabel(
             self.preview_box,
             width=460,
-            height=300,
+            height=259,
             text="Bir görsel seçerek başla\n\nPNG • JPG • WEBP • BMP",
-            text_color="gray60",
+            text_color=UI_TEXT_MUTED,
             font=ctk.CTkFont(size=16)
         )
         self.preview_label.place(relx=0.5, rely=0.5, anchor="center")
@@ -2756,7 +2777,7 @@ class FortniteSplashMaker(ctk.CTk):
             height=24,
             text="Hazır",
             anchor="w",
-            text_color="gray65"
+            text_color=UI_TEXT_SECONDARY
         )
 
         self.status_label.place(
