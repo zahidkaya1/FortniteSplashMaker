@@ -1,4 +1,6 @@
-# Eski kök yapısından src/ yapısına geçiş
+# Eski kök yapısından src/ yapısına geçiş (arşiv)
+
+**Durum:** Bu değişiklik `main` dalında `6cacd70` commit'i ile tamamlandı. Mevcut projede aşağıdaki eski geçiş komutlarını **yeniden çalıştırma**. Bu belge yalnızca önceki klasör düzeninden yükseltecek eski yerel kopyalar için arşiv niteliğindedir.
 
 Bu işlemler **mevcut Git deposu içinde**, kullanıcı verilerine dokunmadan yapılmalıdır.
 

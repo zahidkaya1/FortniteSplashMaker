@@ -1,21 +1,25 @@
-# Windows Installer
+# Windows Installer — v1.1.0 RC
 
-**Gereken:** Inno Setup 6. Script, `%LOCALAPPDATA%\Programs\Inno Setup 6` ve standart Program Files konumlarını kontrol eder.
+**Gereken:** Inno Setup 6. Betik, `%LOCALAPPDATA%\Programs\Inno Setup 6` ve standart Program Files konumlarını kontrol eder.
 
-Önce EXE derle:
+Önce yeni sürümün EXE dosyasını derle:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-Ardından installer oluştur:
+Ardından Installer oluştur:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
 ```
 
-`installer/installer.iss`, derlenen `dist\FortniteSplashMaker\` klasörünü paketler. Uygulamanın `src/` altına taşınması installer'daki `Source:` hedefini değiştirmez.
+`installer/installer.iss`, `dist\FortniteSplashMaker\` içeriğini paketler. `build-installer.ps1`, `build-version.txt` değerinin `1.1.0` olduğunu kontrol eder; eşleşmezse hata verir.
 
-Çıktı: `release\FortniteSplashMaker-v1.0.0-Setup.exe` (v1.1.0 yayınlanmadan önceki dosya adı).
+**Beklenen çıktı:** `release\FortniteSplashMaker-v1.1.0-Setup.exe`.
 
-**Yayın notu:** `installer.iss` içindeki sürüm ve OutputBaseFilename, ayrıca build/release scriptleri ve uygulama sürümü v1.1.0 yayın hazırlığında beraber güncellenmelidir. Önce yeni kurulum test edilmeli, sonra GitHub Release'e yüklenmelidir.
+Kaynak kodun `src/` altına taşınması installer'daki `Source:` konumunu değiştirmez. Uygulama sürümü ve Windows Installer sürüm bilgileri `1.1.0` olarak güncellenmiştir.
+
+**Veri notu:** Mevcut installer konfigürasyonunda kaldırma sırasında `{app}\settings.json` dosyası temizlenir. Test için önce ayarları ve kullanıcı `library/` içeriğini yedekle; kurulu eski sürümü kaldırarak değil, öncelikle kontrollü sürüm yükseltmesiyle test et. Yedeklenmiş splash dosyaları `%LOCALAPPDATA%\FortniteSplashMaker\backups` içinde tutulur.
+
+Kurulmuş uygulamanın çalışması doğrulanmadan Git etiketi veya GitHub Release oluşturma. Ayrıntılar: [RELEASE.md](RELEASE.md).

@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$Version = "1.0.0"
+$Version = "1.1.0"
 $AppName = "FortniteSplashMaker"
 $DistApp = ".\dist\$AppName"
 $ExePath = "$DistApp\$AppName.exe"
@@ -18,6 +18,15 @@ Write-Host ""
 
 if (-not (Test-Path $ExePath)) {
     throw "EXE bulunamadi: $ExePath`nOnce .\scripts\build.ps1 ile build alin."
+}
+
+$BuildVersionFile = Join-Path $DistApp "build-version.txt"
+if (-not (Test-Path $BuildVersionFile)) {
+    throw "Build surum kaydi yok: $BuildVersionFile`nOnce .\scripts\build.ps1 calistirin."
+}
+$BuiltVersion = (Get-Content $BuildVersionFile -Raw).Trim()
+if ($BuiltVersion -ne $Version) {
+    throw "EXE surumu v$BuiltVersion, hedef v$Version. Once .\scripts\build.ps1 calistirin."
 }
 
 Write-Host "[1/4] Eski release temizleniyor..."

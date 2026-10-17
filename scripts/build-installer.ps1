@@ -4,7 +4,7 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
 $AppName = "FortniteSplashMaker"
-$Version = "1.0.0"
+$Version = "1.1.0"
 $DistExe = ".\dist\$AppName\$AppName.exe"
 $IssFile = ".\installer\installer.iss"
 
@@ -19,6 +19,15 @@ if (-not (Test-Path $DistExe)) {
 
 if (-not (Test-Path $IssFile)) {
     throw "installer\installer.iss bulunamadi."
+}
+
+$BuildVersionFile = Join-Path (Split-Path -Parent $DistExe) "build-version.txt"
+if (-not (Test-Path $BuildVersionFile)) {
+    throw "Build surum kaydi yok: $BuildVersionFile`nOnce .\scripts\build.ps1 calistirin."
+}
+$BuiltVersion = (Get-Content $BuildVersionFile -Raw).Trim()
+if ($BuiltVersion -ne $Version) {
+    throw "EXE surumu v$BuiltVersion, hedef v$Version. Once .\scripts\build.ps1 ile yeni EXE olusturun."
 }
 
 $PossibleIsccPaths = @(
@@ -68,7 +77,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup build basarisiz oldu."
 }
 
-$SetupPath = ".\release\FortniteSplashMaker-v1.0.0-Setup.exe"
+$SetupPath = ".\release\FortniteSplashMaker-v$Version-Setup.exe"
 
 if (-not (Test-Path $SetupPath)) {
     throw "Setup EXE olusturulamadi: $SetupPath"

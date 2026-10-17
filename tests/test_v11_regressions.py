@@ -672,7 +672,7 @@ class V11SettingsLayout(unittest.TestCase):
             "open_backup_folder", "refresh_settings_page",
         })
         self.assertEqual(app.settings_open_backup_button.options["state"], "disabled")
-        self.assertIn("1.0.0", " ".join(str(w.options.get("text", "")) for w in created))
+        self.assertIn(main.APP_VERSION, " ".join(str(w.options.get("text", "")) for w in created))
 
     def test_backup_status_handles_missing_valid_and_corrupt_files(self):
         with tempfile.TemporaryDirectory() as folder:

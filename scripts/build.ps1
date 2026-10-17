@@ -4,7 +4,9 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
 Write-Host ""
-Write-Host "Fortnite Splash Maker - v1.0.0 Build" -ForegroundColor Cyan
+$Version = "1.1.0"
+
+Write-Host "Fortnite Splash Maker - v$Version Build" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -125,6 +127,10 @@ $distApp = ".\dist\FortniteSplashMaker"
 if (-not (Test-Path "$distApp\library")) {
     New-Item -ItemType Directory -Path "$distApp\library" | Out-Null
 }
+
+# This marker is checked by both packaging steps, so a leftover
+# executable from an earlier version cannot be released as v1.1.0.
+Set-Content -Path (Join-Path $distApp "build-version.txt") -Value $Version -Encoding ASCII
 
 Write-Host ""
 Write-Host "BUILD TAMAMLANDI" -ForegroundColor Green

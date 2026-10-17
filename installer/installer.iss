@@ -1,5 +1,5 @@
 ﻿#define MyAppName "Fortnite Splash Maker"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "zahidkaya1"
 #define MyAppExeName "FortniteSplashMaker.exe"
 #define ProjectRoot ".."
@@ -16,7 +16,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir={#ProjectRoot}\release
-OutputBaseFilename=FortniteSplashMaker-v1.0.0-Setup
+OutputBaseFilename=FortniteSplashMaker-v{#MyAppVersion}-Setup
 SetupIconFile={#ProjectRoot}\assets\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
@@ -27,11 +27,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
 RestartApplications=no
 ChangesAssociations=no
-VersionInfoVersion=1.0.0.0
+VersionInfoVersion=1.1.0.0
 VersionInfoCompany=zahidkaya1
 VersionInfoDescription=Fortnite Splash Maker Installer
 VersionInfoProductName=Fortnite Splash Maker
-VersionInfoProductVersion=1.0.0.0
+VersionInfoProductVersion=1.1.0.0
 VersionInfoCopyright=Copyright (C) 2026 zahidkaya1
 
 [Languages]

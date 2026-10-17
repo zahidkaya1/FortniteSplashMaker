@@ -28,7 +28,7 @@ from .ui.dialogs import show_confirm_dialog, show_library_name_dialog
 # ============================================================
 
 APP_NAME = "Fortnite Splash Maker"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 WINDOW_WIDTH = 1180
 WINDOW_HEIGHT = 760

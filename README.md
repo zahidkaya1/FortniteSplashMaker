@@ -2,11 +2,13 @@
 
 Fortnite'ın Easy Anti-Cheat başlangıç ekranı (`SplashScreen.png`) için özel görselleri hazırlayan, yerel kütüphanede saklayan ve güvenli şekilde uygulayan Windows masaüstü aracı.
 
-**Sürüm durumu:** GitHub'da yayımlanan kararlı sürüm **v1.0.0**. Bu kaynak ağacında **v1.1.0 geliştirmeleri** bulunuyor. Sürüm numarası ve dağıtım paketlerinin adı, v1.1.0 yayına hazırlanırken birlikte güncellenecek.
+**Sürüm durumu:** Bu kaynak ağacı **v1.1.0 Release Candidate** sürümüdür; kaynak, build ve installer sürüm alanları `1.1.0` olarak güncellenmiştir. **Henüz yayımlanmadı.** GitHub'da yayımlanan son kararlı sürüm **v1.0.0** olarak kalır.
 
 [Kararlı sürümü indir (v1.0.0)](https://github.com/zahidkaya1/FortniteSplashMaker/releases/tag/v1.0.0)
 
-![Oluştur ekranı (önceki sürüm)](docs/screenshots/create.png)
+![Oluştur ekranı (önceki sürümden örnek)](docs/screenshots/create.png)
+
+[v1.1.0 değişiklik günlüğü](CHANGELOG.md) · [RC test ve yayın kontrol listesi](docs/RELEASE.md)
 
 ## Özellikler
 
@@ -63,6 +65,7 @@ FortniteSplashMaker/
 │   ├── test_v11_regressions.py
 │   └── test_project_layout.py
 ├── .gitignore
+├── CHANGELOG.md
 ├── pyproject.toml
 ├── requirements.txt
 └── README.md
@@ -119,13 +122,13 @@ Inno Setup kurulum dosyası (Inno Setup 6 kurulu olmalıdır):
 powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
 ```
 
-**Dikkat:** Kaynak geliştirme aşamasında sürüm alanları hâlâ **1.0.0** değerindedir. v1.1.0 sürüm numarası, release/installer dosya adları ve açıklamaları yayın aşamasında birlikte yükseltilmelidir. Buradan oluşturulan yeni paketleri eski **v1.0.0 GitHub Release** dosyalarının üzerine yükleme.
+**Beklenen v1.1.0 RC çıktıları:** `release\FortniteSplashMaker-v1.1.0-win64.zip` ve `release\FortniteSplashMaker-v1.1.0-Setup.exe`. Paketleri oluşturmadan önce `build.ps1` ile EXE'yi yeniden derle; sürüm uyuşmazlığında paketleme betikleri durur. **Bu paketleri henüz GitHub Release'e yükleme** ve mevcut v1.0.0 sürümünün üzerine yazma.
 
 Ayrıntılar: [Build](docs/BUILD.md), [Installer](docs/INSTALLER.md), [Release](docs/RELEASE.md).
 
 ## Kaynak klasör yapısına geçiş
 
-Mevcut Git deposunu ve kullanıcı verilerini koruyarak geçmek için [MIGRATION.md](docs/MIGRATION.md) belgesini izle. ZIP dosyasını proje köküne çıkarınca eski kök Python dosyaları otomatik silinmez; bunlar doğrulama sonrası kaldırılmalıdır.
+Eski kök düzeninden `src/` yapısına geçiş adımları [MIGRATION.md](docs/MIGRATION.md) içinde tarihsel referans olarak tutuluyor. **Mevcut `main` dalında taşıma tamamlandı**; bu adımları yeniden uygulama.
 
 ## Veri konumları
 
