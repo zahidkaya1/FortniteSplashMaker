@@ -8,8 +8,12 @@ Write-Host "Fortnite Splash Maker - v1.0.0 Build" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
-if (-not (Test-Path ".\main.py")) {
-    throw "main.py bulunamadi. Proje yapisini kontrol edin."
+if (-not (Test-Path ".\scripts\run.py")) {
+    throw "scripts\run.py bulunamadi. Proje yapisini kontrol edin."
+}
+
+if (-not (Test-Path ".\src\fortnite_splash_maker\main.py")) {
+    throw "src\fortnite_splash_maker\main.py bulunamadi."
 }
 
 if (-not (Test-Path ".\assets\current_season_splash.png")) {
@@ -44,7 +48,7 @@ function Remove-DirectorySafe {
     }
 }
 
-Write-Host "[1/5] Bagimliliklar kontrol ediliyor..."
+Write-Host "[1/6] Bagimliliklar kontrol ediliyor..."
 
 python -m pip install -r requirements.txt
 
@@ -52,7 +56,14 @@ if ($LASTEXITCODE -ne 0) {
     throw "Bagimliliklar yuklenemedi."
 }
 
-Write-Host "[2/5] Calisan eski uygulama kontrol ediliyor..."
+Write-Host "[2/6] Otomatik testler calistiriliyor..."
+
+python -m unittest discover -s tests -p "test*.py" -q
+if ($LASTEXITCODE -ne 0) {
+    throw "Otomatik testler basarisiz oldu. Build durduruldu."
+}
+
+Write-Host "[3/6] Calisan eski uygulama kontrol ediliyor..."
 
 $runningApps = Get-Process -Name "FortniteSplashMaker" -ErrorAction SilentlyContinue
 
@@ -62,7 +73,7 @@ if ($runningApps) {
     Start-Sleep -Seconds 1
 }
 
-Write-Host "[3/5] Eski build temizleniyor..."
+Write-Host "[4/6] Eski build temizleniyor..."
 
 try {
     Remove-DirectorySafe ".\build"
@@ -77,7 +88,7 @@ catch {
     throw
 }
 
-Write-Host "[4/5] EXE olusturuluyor..."
+Write-Host "[5/6] EXE olusturuluyor..."
 
 $pyInstallerArgs = @(
     "--noconfirm",
@@ -85,6 +96,7 @@ $pyInstallerArgs = @(
     "--windowed",
     "--onedir",
     "--name", "FortniteSplashMaker",
+    "--paths", ".\src",
     "--add-data", "assets;assets"
 )
 
@@ -98,7 +110,7 @@ else {
     Write-Host "assets\app_icon.ico bulunamadi; EXE simdilik varsayilan ikonla paketlenecek." -ForegroundColor Yellow
 }
 
-$pyInstallerArgs += "main.py"
+$pyInstallerArgs += ".\scripts\run.py"
 
 python -m PyInstaller @pyInstallerArgs
 
@@ -106,7 +118,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller build basarisiz oldu."
 }
 
-Write-Host "[5/5] Yazilabilir library klasoru hazirlaniyor..."
+Write-Host "[6/6] Yazilabilir library klasoru hazirlaniyor..."
 
 $distApp = ".\dist\FortniteSplashMaker"
 

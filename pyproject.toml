@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fortnite-splash-maker"
+version = "1.0.0"
+description = "Windows tool to prepare and manage Fortnite Easy Anti-Cheat splash images"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "customtkinter",
+    "Pillow",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["fortnite_splash_maker*"]

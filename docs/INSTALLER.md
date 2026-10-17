@@ -1,29 +1,21 @@
-# Installer
+# Windows Installer
 
-Windows installer, Inno Setup 6 ile oluşturulur.
+**Gereken:** Inno Setup 6. Script, `%LOCALAPPDATA%\Programs\Inno Setup 6` ve standart Program Files konumlarını kontrol eder.
 
-Önce uygulamayı build edin:
+Önce EXE derle:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-Ardından installer oluşturun:
+Ardından installer oluştur:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
 ```
 
-Çıktı:
+`installer/installer.iss`, derlenen `dist\FortniteSplashMaker\` klasörünü paketler. Uygulamanın `src/` altına taşınması installer'daki `Source:` hedefini değiştirmez.
 
-```text
-release\FortniteSplashMaker-v1.0.0-Setup.exe
-```
+Çıktı: `release\FortniteSplashMaker-v1.0.0-Setup.exe` (v1.1.0 yayınlanmadan önceki dosya adı).
 
-Installer varsayılan olarak:
-
-```text
-%LOCALAPPDATA%\Programs\FortniteSplashMaker
-```
-
-konumuna kurulur.
+**Yayın notu:** `installer.iss` içindeki sürüm ve OutputBaseFilename, ayrıca build/release scriptleri ve uygulama sürümü v1.1.0 yayın hazırlığında beraber güncellenmelidir. Önce yeni kurulum test edilmeli, sonra GitHub Release'e yüklenmelidir.

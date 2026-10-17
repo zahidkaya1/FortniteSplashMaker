@@ -24,3 +24,10 @@ Thumbs.db
 
 # Release output
 release/
+
+# Test and editable installs
+.pytest_cache/
+*.egg-info/
+
+# Source archives
+FortniteSplashMaker-source.zip

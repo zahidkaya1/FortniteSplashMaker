@@ -1,21 +1,18 @@
-# Build
+# Build — Fortnite Splash Maker
 
-Normal Windows uygulama build'i:
+Proje kökünde Windows PowerShell kullan:
 
 ```powershell
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -p "test*.py" -v
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-veya:
+Build scripti proje kökünü kendi dizininden (`$PSScriptRoot`) bulur.
+PyInstaller giriş dosyası **`scripts/run.py`**; paketleri bulma yolu **`src`** (`--paths .\src`), görseller **`assets;assets`** veri parametresiyle eklenir.
 
-```text
-scripts\build.bat
-```
+Çıktı: `dist\FortniteSplashMaker\FortniteSplashMaker.exe`.
 
-Çıktı:
+EXE yanında `library/` kullanıcı klasörü ve çalışma sırasında `settings.json` bulunabilir; build ile bunların kullanıcı sürümü paketlenmez. Kalıcı yedekler `%LOCALAPPDATA%\FortniteSplashMaker\backups` konumunda kalır.
 
-```text
-dist\FortniteSplashMaker\FortniteSplashMaker.exe
-```
-
-Build scripti proje kökünü otomatik bulur; komut proje kökünden veya başka bir klasörden çağrılabilir.
+**Not:** v1.1.0 geliştirme süresince gösterilen uygulama sürümü ve yayın betikleri hâlâ v1.0.0 olarak kalabilir; yeni sürüm yayınından önce birlikte güncellenecek.

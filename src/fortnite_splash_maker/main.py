@@ -10,9 +10,17 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from splash_files import (
+from .splash_files import (
     apply_splash, backup_path_for, read_png, restore_previous_splash,
 )
+from .ui.components import (
+    UI_BG, UI_SURFACE, UI_SURFACE_RAISED, UI_SURFACE_DARK,
+    UI_BORDER, UI_ACCENT, UI_ACCENT_HOVER, UI_TEXT,
+    UI_TEXT_SECONDARY, UI_TEXT_MUTED,
+    create_section_card, create_action_button, create_status_badge,
+)
+from .ui.feedback import FeedbackOverlay, describe_image_error
+from .ui.dialogs import show_confirm_dialog, show_library_name_dialog
 
 
 # ============================================================
@@ -39,7 +47,8 @@ if getattr(sys, "frozen", False):
         )
     )
 else:
-    APP_DIR = Path(__file__).resolve().parent
+    # Kaynak kod src/ altindadir; veri ve assets konumu proje kokunde kalir.
+    APP_DIR = Path(__file__).resolve().parents[2]
     RESOURCE_DIR = APP_DIR
 
 LIBRARY_DIR = APP_DIR / "library"
@@ -54,21 +63,6 @@ BACKUP_DIR = (
 )
 
 SUPPORTED_FILES = "*.png *.jpg *.jpeg *.webp *.bmp"
-
-# ============================================================
-# v1.1 UI - COLOR PALETTE
-# ============================================================
-UI_BG = "#101722"
-UI_SURFACE = "#1B2635"
-UI_SURFACE_RAISED = "#202F42"
-UI_SURFACE_DARK = "#111D2B"
-UI_BORDER = "#304158"
-UI_ACCENT = "#2877CF"
-UI_ACCENT_HOVER = "#1C64B3"
-UI_TEXT = "#F0F5FC"
-UI_TEXT_SECONDARY = "#A7B6CA"
-UI_TEXT_MUTED = "#7F91AA"
-
 
 # ============================================================
 # FIXED UI SIZES
@@ -183,7 +177,7 @@ class FortniteSplashMaker(ctk.CTk):
         # Görüntülenen kartlar ayrıca library_card_images içinde saklanır.
         self.image_reference_pool = deque(maxlen=256)
 
-        self.toast_frame = None
+        self.feedback_overlay = FeedbackOverlay(self)
 
         # ----------------------------------------------------
         # Persistent folders
@@ -306,7 +300,7 @@ class FortniteSplashMaker(ctk.CTk):
             text_color=UI_TEXT_SECONDARY,
         ).place(x=40, y=72)
 
-        self.fortnite_badge = ctk.CTkLabel(
+        self.fortnite_badge = create_status_badge(
             self,
             text="Fortnite aranıyor...",
             width=186,
@@ -318,7 +312,7 @@ class FortniteSplashMaker(ctk.CTk):
         )
         self.fortnite_badge.place(x=950, y=42)
 
-        self.splash_state_badge = ctk.CTkLabel(
+        self.splash_state_badge = create_status_badge(
             self,
             text="Splash durumu bilinmiyor",
             width=186,
@@ -353,6 +347,8 @@ class FortniteSplashMaker(ctk.CTk):
         self.nav.place(x=(WINDOW_WIDTH - 350) // 2, y=125)
 
     def show_page(self, page):
+        # Önceki ekrana ait hata/bilgi kutusu diğer sayfalara taşınmasın.
+        self.feedback_overlay.dismiss()
         self.page_mode.set(page)
 
         self.creator_page.place_forget()
@@ -414,7 +410,7 @@ class FortniteSplashMaker(ctk.CTk):
     # ========================================================
 
     def create_creator_left_panel(self):
-        panel = ctk.CTkFrame(
+        panel = create_section_card(
             self.creator_page,
             width=CREATOR_LEFT_W,
             height=CREATOR_LEFT_H,
@@ -490,6 +486,9 @@ class FortniteSplashMaker(ctk.CTk):
         format_frame.place(x=20, y=420)
         format_frame.grid_propagate(False)
         format_frame.pack_propagate(False)
+        # Bildirim gelirse bu bilgi kutusu geçici olarak gizlenir.
+        # Bildirim kapatılınca normal format açıklaması geri gösterilir.
+        self.feedback_overlay.register_creator_slot(panel, format_frame)
 
         ctk.CTkLabel(
             format_frame,
@@ -514,7 +513,7 @@ class FortniteSplashMaker(ctk.CTk):
     # ========================================================
 
     def create_creator_right_panel(self):
-        panel = ctk.CTkFrame(
+        panel = create_section_card(
             self.creator_page,
             width=CREATOR_RIGHT_W,
             height=CREATOR_RIGHT_H,
@@ -536,8 +535,9 @@ class FortniteSplashMaker(ctk.CTk):
             ).place(x=20, y=y)
 
         section_heading("01   Görsel seçimi", 15)
-        ctk.CTkButton(
+        create_action_button(
             panel,
+            variant="secondary",
             text="Görsel Seç",
             width=500,
             height=42,
@@ -598,8 +598,9 @@ class FortniteSplashMaker(ctk.CTk):
         section_heading("03   İşlemler", 248)
 
         # Ekrandaki tek birincil eylem.
-        ctk.CTkButton(
+        create_action_button(
             panel,
+            variant="primary",
             text="Fortnite'a Uygula",
             width=500,
             height=43,
@@ -784,7 +785,7 @@ class FortniteSplashMaker(ctk.CTk):
         # ScrollableFrame doğrudan ana sayfaya konursa scrollbar ve widget
         # boşluklarıyla beklenenden geniş olabiliyor. Dış çerçeve panelin
         # gerçek sınırını belirler; kaydırma alanını panelin içinde tutarız.
-        self.library_gallery_panel = ctk.CTkFrame(
+        self.library_gallery_panel = create_section_card(
             self.library_page,
             width=LIB_GALLERY_W,
             height=LIB_GALLERY_H,
@@ -808,7 +809,7 @@ class FortniteSplashMaker(ctk.CTk):
         )
         self.library_scroll.place(x=10, y=10)
 
-        preview_panel = ctk.CTkFrame(
+        preview_panel = create_section_card(
             self.library_page,
             width=LIB_PREVIEW_W,
             height=LIB_PREVIEW_H,
@@ -869,7 +870,7 @@ class FortniteSplashMaker(ctk.CTk):
         )
         self.library_info_label.place(x=20, y=315)
 
-        self.library_apply_button = ctk.CTkButton(
+        self.library_apply_button = create_action_button(
             preview_panel,
             text="Fortnite'a Uygula",
             width=395,
@@ -959,9 +960,9 @@ class FortniteSplashMaker(ctk.CTk):
 
     def fortnite_target_is_ready(self):
         if self.splash_path is None:
-            messagebox.showwarning(
-                "Fortnite bulunamadı",
-                "Önce Fortnite klasörünü seç."
+            self.show_feedback(
+                "warning", "Fortnite bulunamadı",
+                "Devam etmek için önce Fortnite kurulum klasörünü seç.",
             )
             return False
 
@@ -1051,7 +1052,7 @@ class FortniteSplashMaker(ctk.CTk):
         ).place(x=15, y=32)
 
         # Sol üst: Fortnite dosyasının bağlı olduğu klasör.
-        install_card = ctk.CTkFrame(
+        install_card = create_section_card(
             self.settings_page,
             width=640,
             height=225,
@@ -1071,7 +1072,7 @@ class FortniteSplashMaker(ctk.CTk):
             font=ctk.CTkFont(size=17, weight="bold"),
             text_color=UI_TEXT,
         ).place(x=20, y=16)
-        self.settings_install_badge = ctk.CTkLabel(
+        self.settings_install_badge = create_status_badge(
             install_card,
             text="Kontrol ediliyor",
             width=148,
@@ -1139,7 +1140,7 @@ class FortniteSplashMaker(ctk.CTk):
         ).place(x=329, y=161)
 
         # Sol alt: Kurulumdan bağımsız saklanan ilk splash yedeği.
-        backup_card = ctk.CTkFrame(
+        backup_card = create_section_card(
             self.settings_page,
             width=640,
             height=214,
@@ -1159,7 +1160,7 @@ class FortniteSplashMaker(ctk.CTk):
             font=ctk.CTkFont(size=17, weight="bold"),
             text_color=UI_TEXT,
         ).place(x=20, y=17)
-        self.settings_backup_badge = ctk.CTkLabel(
+        self.settings_backup_badge = create_status_badge(
             backup_card,
             text="Yedek kontrol ediliyor",
             width=175,
@@ -1194,7 +1195,7 @@ class FortniteSplashMaker(ctk.CTk):
             text_color=UI_TEXT_MUTED,
         ).place(x=20, y=108)
 
-        self.settings_open_backup_button = ctk.CTkButton(
+        self.settings_open_backup_button = create_action_button(
             backup_card,
             text="Yedek Klasörünü Aç",
             width=292,
@@ -1219,7 +1220,7 @@ class FortniteSplashMaker(ctk.CTk):
         ).place(x=330, y=151)
 
         # Sağ üst: dosya bütünlüğünden hesaplanan splash durumu.
-        splash_card = ctk.CTkFrame(
+        splash_card = create_section_card(
             self.settings_page,
             width=420,
             height=262,
@@ -1239,7 +1240,7 @@ class FortniteSplashMaker(ctk.CTk):
             font=ctk.CTkFont(size=17, weight="bold"),
             text_color=UI_TEXT,
         ).place(x=20, y=16)
-        self.settings_active_badge = ctk.CTkLabel(
+        self.settings_active_badge = create_status_badge(
             splash_card,
             width=380,
             height=42,
@@ -1288,7 +1289,7 @@ class FortniteSplashMaker(ctk.CTk):
         ).place(x=20, y=209)
 
         # Sağ alt: sürüm ve uygulamaya ait veri dosyaları.
-        app_card = ctk.CTkFrame(
+        app_card = create_section_card(
             self.settings_page,
             width=420,
             height=177,
@@ -1408,9 +1409,9 @@ class FortniteSplashMaker(ctk.CTk):
     def open_backup_folder(self):
         """Uygulama dışındaki kalıcı yedekleri silmeden klasörünü göster."""
         if not BACKUP_DIR.is_dir():
-            messagebox.showwarning(
-                "Yedek klasörü bulunamadı",
-                "Henüz bir yedek klasörü oluşturulmamış.",
+            self.show_feedback(
+                "warning", "Yedek klasörü bulunamadı",
+                "Henüz yedek oluşturulmadı. İlk splash değişiminde yedek alınır.",
             )
             return
         try:
@@ -1514,6 +1515,8 @@ class FortniteSplashMaker(ctk.CTk):
             )
 
             self.process_image()
+            # Önceki geçersiz seçimden kalan hata kartını kaldır.
+            self.feedback_overlay.dismiss()
 
             self.set_status(
                 "Görsel hazır."
@@ -1526,9 +1529,9 @@ class FortniteSplashMaker(ctk.CTk):
             self.clear_creator_preview()
             self.set_status("Görsel yüklenemedi.")
 
-            messagebox.showerror(
-                "Görsel açılamadı",
-                str(error)
+            info = describe_image_error(error, path)
+            self.show_feedback(
+                info.level, info.title, info.message, details=info.details,
             )
 
     def create_empty_creator_preview(self):
@@ -1623,9 +1626,9 @@ class FortniteSplashMaker(ctk.CTk):
 
     def save_as(self):
         if self.processed_image is None:
-            messagebox.showwarning(
-                "Görsel seçilmedi",
-                "Önce bir görsel seç."
+            self.show_feedback(
+                "warning", "Görsel seçilmedi",
+                "Kaydetmek için önce bir görsel seç.",
             )
             return
 
@@ -1669,106 +1672,16 @@ class FortniteSplashMaker(ctk.CTk):
         title,
         message,
         confirm_text="Evet",
-        cancel_text="Hayır"
+        cancel_text="Hayır",
     ):
-        dialog = ctk.CTkToplevel(self)
-        dialog.title(title)
-        dialog.geometry("430x210")
-        dialog.resizable(False, False)
-        dialog.transient(self)
-        dialog.grab_set()
-
-        self.update_idletasks()
-
-        parent_x = self.winfo_x()
-        parent_y = self.winfo_y()
-
-        x = parent_x + (WINDOW_WIDTH - 430) // 2
-        y = parent_y + (WINDOW_HEIGHT - 210) // 2
-
-        dialog.geometry(
-            f"430x210+{x}+{y}"
+        """Bütün silme, sıfırlama ve geri yükleme onayları ortak pencereyi kullanır."""
+        return show_confirm_dialog(
+            self,
+            title,
+            message,
+            confirm_text=confirm_text,
+            cancel_text=cancel_text,
         )
-
-        result = {
-            "confirmed": False
-        }
-
-        ctk.CTkLabel(
-            dialog,
-            text=title,
-            font=ctk.CTkFont(
-                size=20,
-                weight="bold"
-            )
-        ).place(
-            x=24,
-            y=22
-        )
-
-        ctk.CTkLabel(
-            dialog,
-            width=382,
-            height=78,
-            text=message,
-            wraplength=380,
-            justify="left",
-            anchor="w",
-            text_color="gray70"
-        ).place(
-            x=24,
-            y=62
-        )
-
-        def confirm():
-            result["confirmed"] = True
-            dialog.destroy()
-
-        def cancel():
-            dialog.destroy()
-
-        ctk.CTkButton(
-            dialog,
-            text=cancel_text,
-            width=120,
-            height=36,
-            fg_color="transparent",
-            border_width=1,
-            command=cancel
-        ).place(
-            x=166,
-            y=154
-        )
-
-        ctk.CTkButton(
-            dialog,
-            text=confirm_text,
-            width=120,
-            height=36,
-            command=confirm
-        ).place(
-            x=286,
-            y=154
-        )
-
-        dialog.bind(
-            "<Return>",
-            lambda _event: confirm()
-        )
-
-        dialog.bind(
-            "<Escape>",
-            lambda _event: cancel()
-        )
-
-        dialog.protocol(
-            "WM_DELETE_WINDOW",
-            cancel
-        )
-
-        self.wait_window(dialog)
-
-        return result["confirmed"]
 
     # ========================================================
     # CUSTOM LIBRARY NAME DIALOG
@@ -1781,167 +1694,17 @@ class FortniteSplashMaker(ctk.CTk):
         }
 
         index = 1
-
         while True:
             candidate = f"Splash {index:02d}"
-
             if candidate.casefold() not in existing_stems:
                 return candidate
-
             index += 1
 
     def ask_library_name(self):
-        default_name = self.get_next_library_default_name()
-
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("Kütüphaneye Ekle")
-        dialog.geometry("460x235")
-        dialog.resizable(False, False)
-        dialog.transient(self)
-        dialog.grab_set()
-
-        self.update_idletasks()
-
-        parent_x = self.winfo_x()
-        parent_y = self.winfo_y()
-
-        x = parent_x + (WINDOW_WIDTH - 460) // 2
-        y = parent_y + (WINDOW_HEIGHT - 235) // 2
-
-        dialog.geometry(
-            f"460x235+{x}+{y}"
+        """Kütüphaneye ekleme penceresinde ortak lacivert tasarımı kullan."""
+        return show_library_name_dialog(
+            self, self.get_next_library_default_name()
         )
-
-        result = {
-            "confirmed": False,
-            "value": None
-        }
-
-        ctk.CTkLabel(
-            dialog,
-            text="Kütüphaneye Ekle",
-            font=ctk.CTkFont(
-                size=20,
-                weight="bold"
-            )
-        ).place(
-            x=24,
-            y=20
-        )
-
-        ctk.CTkLabel(
-            dialog,
-            width=412,
-            height=42,
-            text=(
-                "İstersen bir ad yaz. Boş bırakırsan "
-                f"otomatik olarak “{default_name}” kullanılacak."
-            ),
-            wraplength=410,
-            justify="left",
-            anchor="w",
-            text_color="gray65"
-        ).place(
-            x=24,
-            y=58
-        )
-
-        entry = ctk.CTkEntry(
-            dialog,
-            width=412,
-            height=38,
-            placeholder_text=default_name
-        )
-
-        entry.place(
-            x=24,
-            y=112
-        )
-
-        error_label = ctk.CTkLabel(
-            dialog,
-            width=412,
-            height=22,
-            text="",
-            anchor="w",
-            text_color="#d66"
-        )
-
-        error_label.place(
-            x=24,
-            y=152
-        )
-
-        def confirm():
-            value = " ".join(
-                entry.get().strip().split()
-            )
-
-            if not value:
-                value = default_name
-
-            if len(value) > 60:
-                error_label.configure(
-                    text=(
-                        "Ad en fazla 60 karakter olabilir."
-                    )
-                )
-                return
-
-            result["confirmed"] = True
-            result["value"] = value
-            dialog.destroy()
-
-        def cancel():
-            dialog.destroy()
-
-        ctk.CTkButton(
-            dialog,
-            text="İptal",
-            width=120,
-            height=34,
-            fg_color="transparent",
-            border_width=1,
-            command=cancel
-        ).place(
-            x=196,
-            y=184
-        )
-
-        ctk.CTkButton(
-            dialog,
-            text="Kütüphaneye Ekle",
-            width=120,
-            height=34,
-            command=confirm
-        ).place(
-            x=316,
-            y=184
-        )
-
-        entry.bind(
-            "<Return>",
-            lambda _event: confirm()
-        )
-
-        dialog.bind(
-            "<Escape>",
-            lambda _event: cancel()
-        )
-
-        dialog.protocol(
-            "WM_DELETE_WINDOW",
-            cancel
-        )
-
-        entry.focus_set()
-
-        self.wait_window(dialog)
-
-        if result["confirmed"]:
-            return result["value"]
-
-        return None
 
     # ========================================================
     # LIBRARY ADD
@@ -1949,9 +1712,9 @@ class FortniteSplashMaker(ctk.CTk):
 
     def add_current_to_library(self):
         if self.processed_image is None:
-            messagebox.showwarning(
-                "Görsel seçilmedi",
-                "Önce bir görsel seç."
+            self.show_feedback(
+                "warning", "Görsel seçilmedi",
+                "Kütüphaneye eklemek için önce bir görsel seç.",
             )
             return
 
@@ -2034,9 +1797,9 @@ class FortniteSplashMaker(ctk.CTk):
             )
 
         except Exception as error:
-            messagebox.showerror(
-                "Görsel eklenemedi",
-                str(error)
+            info = describe_image_error(error, filename)
+            self.show_feedback(
+                info.level, info.title, info.message, details=info.details,
             )
 
     def make_unique_library_name(self, stem):
@@ -2075,60 +1838,16 @@ class FortniteSplashMaker(ctk.CTk):
     # TOAST
     # ========================================================
 
-    def show_toast(
-        self,
-        message,
-        duration=2500
-    ):
-        if self.toast_frame is not None:
-            try:
-                self.toast_frame.destroy()
-            except Exception:
-                pass
-
-        self.toast_frame = ctk.CTkFrame(
-            self,
-            width=360,
-            height=48,
-            corner_radius=10
+    def show_feedback(self, level, title, message, *, details=None, duration=None):
+        """Uygun sayfadaki bilgi alanını kullan; alt durum metnini tekrarlama."""
+        return self.feedback_overlay.show(
+            level, title, message, details=details, duration=duration,
         )
 
-        self.toast_frame.place(
-            x=WINDOW_WIDTH - 385,
-            y=690
-        )
-
-        self.toast_frame.grid_propagate(False)
-        self.toast_frame.pack_propagate(False)
-
-        ctk.CTkLabel(
-            self.toast_frame,
-            width=330,
-            height=48,
-            text=message,
-            anchor="w",
-            font=ctk.CTkFont(
-                size=13,
-                weight="bold"
-            )
-        ).place(
-            x=16,
-            y=0
-        )
-
-        frame = self.toast_frame
-
-        def close_toast():
-            if self.toast_frame is frame:
-                try:
-                    frame.destroy()
-                except Exception:
-                    pass
-                self.toast_frame = None
-
-        self.after(
-            duration,
-            close_toast
+    def show_toast(self, message, duration=3500):
+        """Eski başarı çağrıları yeni ortak bildirim alanını kullanır."""
+        self.show_feedback(
+            "success", "İşlem tamamlandı", message, duration=duration,
         )
 
     # ========================================================
@@ -2351,9 +2070,9 @@ class FortniteSplashMaker(ctk.CTk):
         path = Path(path)
         if not path.is_file():
             self.refresh_library()
-            messagebox.showwarning(
-                "Görsel bulunamadı",
-                "Seçilen görsel artık mevcut değil. Kütüphane yenilendi.",
+            self.show_feedback(
+                "warning", "Görsel bulunamadı",
+                "Seçilen görsel silinmiş veya taşınmış. Kütüphane yenilendi.",
             )
             return
 
@@ -2404,13 +2123,16 @@ class FortniteSplashMaker(ctk.CTk):
             self.set_status(f"Seçildi: {display_name}")
 
         except Exception as error:
-            messagebox.showerror("Görsel açılamadı", str(error))
+            info = describe_image_error(error, path)
+            self.show_feedback(
+                info.level, info.title, info.message, details=info.details,
+            )
 
     def apply_library_item(self):
         if self.library_selected_path is None:
-            messagebox.showwarning(
-                "Görsel seçilmedi",
-                "Kütüphaneden bir görsel seç."
+            self.show_feedback(
+                "warning", "Görsel seçilmedi",
+                "Fortnite'a uygulamak için kütüphaneden bir görsel seç.",
             )
             return
 
@@ -2425,12 +2147,9 @@ class FortniteSplashMaker(ctk.CTk):
             self.clear_library_selection()
             self.refresh_library()
 
-            messagebox.showwarning(
-                "Görsel bulunamadı",
-                (
-                    "Seçilen kütüphane görseli artık mevcut değil. "
-                    "Kütüphane yenilendi."
-                )
+            self.show_feedback(
+                "warning", "Görsel bulunamadı",
+                "Seçilen kütüphane görseli artık mevcut değil. Liste yenilendi.",
             )
             return
 
@@ -2473,19 +2192,16 @@ class FortniteSplashMaker(ctk.CTk):
 
     def delete_library_item(self):
         if self.library_selected_path is None:
-            messagebox.showwarning(
-                "Görsel seçilmedi",
-                "Önce bir görsel seç."
+            self.show_feedback(
+                "warning", "Görsel seçilmedi",
+                "Silmek için önce kütüphaneden bir görsel seç.",
             )
             return
 
         if self.library_selected_kind == "season":
-            messagebox.showinfo(
-                "Paketle Gelen Sezon Görseli",
-                (
-                    "Bu görsel uygulamayla birlikte gelen sezon "
-                    "görselidir ve kütüphaneden silinemez."
-                )
+            self.show_feedback(
+                "info", "Paket sezon görseli",
+                "Uygulamayla gelen sezon görseli kütüphaneden silinemez.",
             )
             return
 
@@ -2950,9 +2666,9 @@ class FortniteSplashMaker(ctk.CTk):
 
     def apply_to_fortnite(self):
         if self.processed_image is None:
-            messagebox.showwarning(
-                "Görsel seçilmedi",
-                "Önce bir görsel seç."
+            self.show_feedback(
+                "warning", "Görsel seçilmedi",
+                "Fortnite'a uygulamak için önce bir görsel seç.",
             )
             return
 

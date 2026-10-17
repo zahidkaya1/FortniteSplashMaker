@@ -17,7 +17,7 @@ from unittest.mock import patch
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 
 # Bu testler UI penceresi açmadan iş mantığını kontrol eder. CTk henüz
 # yüklenmemiş test ortamında sadece sınıfı import etmek için bir taklit kullan.
@@ -28,8 +28,10 @@ except ImportError:
     ctk_stub.CTk = type("CTk", (), {})
     sys.modules["customtkinter"] = ctk_stub
 
-import main
-from splash_files import apply_splash, backup_path_for, restore_previous_splash
+from fortnite_splash_maker import main
+from fortnite_splash_maker.splash_files import (
+    apply_splash, backup_path_for, restore_previous_splash,
+)
 
 
 class FakeLabel:
@@ -157,6 +159,7 @@ class V11Regressions(unittest.TestCase):
         preview = FakeLabel()
         info = FakeLabel()
         status = []
+        feedback = []
         obj = types.SimpleNamespace(
             input_path=None,
             original_image=None,
@@ -168,6 +171,7 @@ class V11Regressions(unittest.TestCase):
             file_info=info,
             load_rgba_image=lambda _path: (_ for _ in ()).throw(ValueError("invalid")),
             set_status=status.append,
+            show_feedback=lambda *args, **kwargs: feedback.append((args, kwargs)),
         )
         obj.create_empty_creator_preview = lambda: main.FortniteSplashMaker.create_empty_creator_preview(obj)
         obj.clear_creator_preview = lambda: main.FortniteSplashMaker.clear_creator_preview(obj)
@@ -185,7 +189,10 @@ class V11Regressions(unittest.TestCase):
         self.assertNotIn("image", obj.preview_label.options)
         self.assertEqual(info.options["text"], "Henüz görsel seçilmedi")
         self.assertEqual(len(obj.image_reference_pool), 1)
-        showerror.assert_called_once()
+        showerror.assert_not_called()
+        self.assertEqual(len(feedback), 1)
+        self.assertEqual(feedback[0][0][:2], ("error", "Görsel açılamadı"))
+        self.assertEqual(feedback[0][1]["details"], "bad.png")
 
     def test_clearing_library_selection(self):
         old = object()
@@ -215,6 +222,7 @@ class V11Regressions(unittest.TestCase):
         old_preview = FakeLabel(image=object())
         info = FakeLabel()
         statuses = []
+        feedback = []
         obj = types.SimpleNamespace(
             input_path=None,
             original_image=None,
@@ -226,6 +234,7 @@ class V11Regressions(unittest.TestCase):
             file_info=info,
             load_rgba_image=lambda _path: (_ for _ in ()).throw(ValueError("invalid")),
             set_status=statuses.append,
+            show_feedback=lambda *args, **kwargs: feedback.append((args, kwargs)),
         )
         obj.create_empty_creator_preview = lambda: main.FortniteSplashMaker.create_empty_creator_preview(obj)
         obj.clear_creator_preview = lambda: main.FortniteSplashMaker.clear_creator_preview(obj)
@@ -243,7 +252,8 @@ class V11Regressions(unittest.TestCase):
         self.assertNotIn("image", obj.preview_label.options)
         self.assertEqual(obj.preview_label.options["text"], "Bir görsel seçerek başla\n\nPNG • JPG • WEBP • BMP")
         self.assertEqual(len(obj.image_reference_pool), 1)
-        self.assertEqual(showerror.call_count, 2)
+        showerror.assert_not_called()
+        self.assertEqual(len(feedback), 2)
 
     def test_previous_splash_restored_byte_for_byte(self):
         target = self.root / "SplashScreen.png"
@@ -299,6 +309,7 @@ class V11CreatorLayout(unittest.TestCase):
         obj = main.FortniteSplashMaker.__new__(main.FortniteSplashMaker)
         obj.main_container = object()
         obj.preview_label = None
+        obj.feedback_overlay = types.SimpleNamespace(register_creator_slot=lambda *_args: None)
 
         with (
             patch.object(main.ctk, "CTkFrame", Widget, create=True),
@@ -701,16 +712,21 @@ class V11SettingsLayout(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             candidate = root / "backups"
+            feedback = []
+            app = types.SimpleNamespace(
+                show_feedback=lambda *args, **kwargs: feedback.append((args, kwargs))
+            )
             with (
                 patch.object(main, "BACKUP_DIR", candidate),
                 patch.object(main.os, "startfile", create=True) as start,
                 patch.object(main.messagebox, "showwarning") as warning,
             ):
-                main.FortniteSplashMaker.open_backup_folder(object())
+                main.FortniteSplashMaker.open_backup_folder(app)
                 start.assert_not_called()
-                warning.assert_called_once()
+                warning.assert_not_called()
+                self.assertEqual(feedback[0][0][0], "warning")
                 candidate.mkdir()
-                main.FortniteSplashMaker.open_backup_folder(object())
+                main.FortniteSplashMaker.open_backup_folder(app)
                 start.assert_called_once_with(str(candidate))
 
     def test_active_status_badge_reacts_to_valid_splash(self):
@@ -739,5 +755,483 @@ class V11SettingsLayout(unittest.TestCase):
                 self.assertIn("Özel", app.settings_active_badge.options["text"])
 
 
+class V11CommonFeedback(unittest.TestCase):
+    """UI helper'ları, ortak mesaj kutusunu ve art arda mesaj ömrünü korur."""
+
+    def test_image_failure_is_human_readable(self):
+        from fortnite_splash_maker.ui.feedback import describe_image_error
+        value = describe_image_error(ValueError("Pillow exception"), "test.pdf")
+        self.assertEqual(value.level, "error")
+        self.assertEqual(value.title, "Desteklenmeyen dosya")
+        self.assertIn("PNG, JPG", value.message)
+        self.assertEqual(value.details, "test.pdf")
+        broken = describe_image_error(ValueError("decode"), "bad.png")
+        self.assertEqual(broken.title, "Görsel açılamadı")
+        missing = describe_image_error(FileNotFoundError("missing"), "gone.png")
+        self.assertEqual(missing.title, "Dosya bulunamadı")
+
+    def test_long_content_is_bounded(self):
+        from fortnite_splash_maker.ui.feedback import FeedbackMessage
+        item = FeedbackMessage.from_values("error", "A" * 100, "B" * 300, "C" * 300)
+        self.assertLessEqual(len(item.title), 48)
+        self.assertLessEqual(len(item.message), 145)
+        self.assertLessEqual(len(item.details), 87)
+
+    def test_shared_styles_validate_variants(self):
+        from fortnite_splash_maker.ui.components import create_action_button, create_status_badge
+        with self.assertRaises(ValueError):
+            create_action_button(object(), variant="unknown")
+        with self.assertRaises(ValueError):
+            create_status_badge(object(), tone="invalid")
+
+    def test_toast_uses_new_feedback_api(self):
+        observed = []
+        obj = types.SimpleNamespace(show_feedback=lambda *a, **kw: observed.append((a, kw)))
+        main.FortniteSplashMaker.show_toast(obj, "Kaydedildi", 2500)
+        self.assertEqual(observed[0][0][:2], ("success", "İşlem tamamlandı"))
+        self.assertEqual(observed[0][1]["duration"], 2500)
+
+    def test_later_message_is_not_dismissed_by_old_timer(self):
+        from fortnite_splash_maker.ui.feedback import FeedbackOverlay
+        widgets = []
+
+        class FakeWidget:
+            def __init__(self, _master=None, **kwargs):
+                self.options = kwargs
+                self.destroyed = False
+                widgets.append(self)
+            def place(self, **kwargs):
+                self.placement = kwargs
+            def grid_propagate(self, flag):
+                pass
+            def pack_propagate(self, flag):
+                pass
+            def destroy(self):
+                self.destroyed = True
+            def lift(self):
+                pass
+
+        class Root:
+            def __init__(self):
+                self.callbacks = {}
+                self.cancelled = []
+                self.index = 0
+            def after(self, delay, fn):
+                self.index += 1
+                self.callbacks[self.index] = fn
+                return self.index
+            def after_cancel(self, key):
+                self.cancelled.append(key)
+
+        root = Root()
+        overlay = FeedbackOverlay(root)
+        with (
+            patch.object(main.ctk, "CTkFrame", FakeWidget, create=True),
+            patch.object(main.ctk, "CTkLabel", FakeWidget, create=True),
+            patch.object(main.ctk, "CTkButton", FakeWidget, create=True),
+            patch.object(main.ctk, "CTkFont", lambda **kw: None, create=True),
+        ):
+            overlay.show("success", "Birinci", "İlk mesaj", duration=1000)
+            first_frame = overlay.frame
+            previous_callback = root.callbacks[1]
+            overlay.show("error", "İkinci", "Hatalı dosya")
+            self.assertTrue(first_frame.destroyed)
+            self.assertIn(1, root.cancelled)
+            previous_callback()  # iptal edilmiş timer yine de çağrılsa
+            self.assertIsNotNone(overlay.frame)
+            self.assertEqual(overlay.current.title, "İkinci")
+            self.assertEqual(overlay.current.level, "error")
+            overlay.dismiss()
+            self.assertIsNone(overlay.frame)
+            self.assertIsNone(overlay.current)
+
+    def test_feedback_does_not_repeat_message_in_statusbar(self):
+        from fortnite_splash_maker.ui.feedback import FeedbackMessage
+        recorded = []
+        fake = types.SimpleNamespace(
+            feedback_overlay=types.SimpleNamespace(
+                show=lambda *args, **kwargs: FeedbackMessage.from_values(
+                    *args[:3], kwargs.get("details")
+                ),
+            ),
+            set_status=recorded.append,
+        )
+        info = main.FortniteSplashMaker.show_feedback(
+            fake, "warning", "Kontrol", "Eksik görsel", details="test.png"
+        )
+        self.assertEqual(recorded, [])
+        self.assertEqual(info.details, "test.png")
+
+    def test_creator_feedback_uses_format_slot_and_restores_default(self):
+        from fortnite_splash_maker.ui.feedback import FeedbackOverlay
+        widgets = []
+
+        class Widget:
+            def __init__(self, master=None, **options):
+                self.master = master
+                self.options = options
+                self.placement = None
+                self.hidden = False
+                self.destroyed = False
+                widgets.append(self)
+
+            def place(self, **options):
+                self.placement = dict(options)
+                self.hidden = False
+
+            def place_forget(self):
+                self.hidden = True
+
+            def pack_propagate(self, *_args):
+                pass
+
+            def grid_propagate(self, *_args):
+                pass
+
+            def destroy(self):
+                self.destroyed = True
+
+            def lift(self):
+                pass
+
+        class Root:
+            page_mode = types.SimpleNamespace(get=lambda: "Oluştur")
+
+            def after(self, *_args):
+                return "timer"
+
+            def after_cancel(self, *_args):
+                pass
+
+        root = Root()
+        parent = Widget()
+        hint = Widget(parent)
+        hint.place(x=20, y=420)
+        overlay = FeedbackOverlay(root)
+        overlay.register_creator_slot(parent, hint)
+        with (
+            patch.object(main.ctk, "CTkFrame", Widget, create=True),
+            patch.object(main.ctk, "CTkLabel", Widget, create=True),
+            patch.object(main.ctk, "CTkButton", Widget, create=True),
+            patch.object(main.ctk, "CTkFont", lambda **kw: None, create=True),
+        ):
+            overlay.show(
+                "error", "Desteklenmeyen dosya",
+                "Lütfen PNG, JPG, WEBP veya BMP biçiminde bir görsel seçin.",
+                details="sample.pdf",
+            )
+            frame = overlay.frame
+            self.assertIs(frame.master, parent)
+            self.assertEqual(frame.placement, {"x": 20, "y": 420})
+            self.assertEqual(frame.options["height"], 66)
+            self.assertTrue(hint.hidden)
+            self.assertEqual(overlay.current.details, "sample.pdf")
+            overlay.dismiss()
+            self.assertTrue(frame.destroyed)
+            self.assertFalse(hint.hidden)
+            self.assertEqual(hint.placement, {"x": 20, "y": 420})
+
+    def test_library_feedback_replaces_statusbar_without_covering_cards(self):
+        from fortnite_splash_maker.ui.feedback import FeedbackOverlay
+
+        class Widget:
+            def __init__(self, master=None, **options):
+                self.options = options
+                self.master = master
+                self.placement = {}
+                self.hidden = False
+
+            def place(self, **options):
+                self.placement = dict(options)
+                self.hidden = False
+
+            def place_forget(self):
+                self.hidden = True
+
+            def grid_propagate(self, *_args):
+                pass
+
+            def pack_propagate(self, *_args):
+                pass
+
+            def destroy(self):
+                pass
+
+            def lift(self):
+                pass
+
+        class Root:
+            def __init__(self):
+                self.page_mode = types.SimpleNamespace(get=lambda: "Kütüphane")
+                self.status_label = Widget()
+
+            def after(self, *_args):
+                return "timer"
+
+            def after_cancel(self, *_args):
+                pass
+
+        root = Root()
+        overlay = FeedbackOverlay(root)
+        with (
+            patch.object(main.ctk, "CTkFrame", Widget, create=True),
+            patch.object(main.ctk, "CTkLabel", Widget, create=True),
+            patch.object(main.ctk, "CTkButton", Widget, create=True),
+            patch.object(main.ctk, "CTkFont", lambda **kw: None, create=True),
+        ):
+            overlay.show("warning", "Boş kütüphane", "Görsel bulunamadı.")
+            frame = overlay.frame
+            self.assertIs(frame.master, root)
+            self.assertGreaterEqual(frame.placement["y"],
+                                    main.MAIN_Y + main.LIB_GALLERY_Y + main.LIB_GALLERY_H)
+            self.assertLessEqual(frame.placement["y"] + frame.options["height"],
+                                 main.WINDOW_HEIGHT)
+            self.assertTrue(root.status_label.hidden)
+            overlay.dismiss()
+            self.assertFalse(root.status_label.hidden)
+            self.assertEqual(root.status_label.placement["y"], 724)
+
+    def test_switching_pages_dismisses_previous_feedback(self):
+        class Widget:
+            def place_forget(self):
+                pass
+
+            def place(self, **_kwargs):
+                pass
+
+        switched = []
+        app = types.SimpleNamespace(
+            feedback_overlay=types.SimpleNamespace(dismiss=lambda: switched.append("dismiss")),
+            page_mode=types.SimpleNamespace(set=lambda x: switched.append(x)),
+            creator_page=Widget(),
+            library_page=Widget(),
+            settings_page=Widget(),
+            refresh_settings_page=lambda: None,
+            refresh_library=lambda: None,
+        )
+        main.FortniteSplashMaker.show_page(app, "Ayarlar")
+        self.assertEqual(switched, ["dismiss", "Ayarlar"])
+
+    def test_valid_image_clears_old_feedback(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p = Path(folder) / "okay.png"
+            p.write_bytes(png_bytes())
+            dismissed = []
+            status = []
+            obj = types.SimpleNamespace(
+                input_path=None,
+                original_image=None,
+                processed_image=None,
+                file_info=FakeLabel(),
+                feedback_overlay=types.SimpleNamespace(dismiss=lambda: dismissed.append(1)),
+                load_rgba_image=lambda path: Image.open(path).convert("RGBA"),
+                process_image=lambda: None,
+                set_status=status.append,
+            )
+            main.FortniteSplashMaker.load_input_image(obj, p)
+            self.assertEqual(dismissed, [1])
+            self.assertEqual(status, ["Görsel hazır."])
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class V11ModalDialogs(unittest.TestCase):
+    """Tek tip modal pencereler, kaçış yolları ve kütüphane adı kontrolleri."""
+
+    def test_library_name_normalization(self):
+        from fortnite_splash_maker.ui.dialogs import normalize_library_name
+
+        self.assertEqual(normalize_library_name("   ", "Splash 01"), "Splash 01")
+        self.assertEqual(normalize_library_name("  Benim  Splash\tDenemem  ", "Splash 01"), "Benim Splash Denemem")
+        self.assertEqual(normalize_library_name("x" * 60, "Splash 01"), "x" * 60)
+        with self.assertRaisesRegex(ValueError, "60 karakter"):
+            normalize_library_name("x" * 61, "Splash 01")
+
+    def test_app_dialog_methods_use_shared_ui_module(self):
+        app = main.FortniteSplashMaker.__new__(main.FortniteSplashMaker)
+        with patch.object(main, "show_confirm_dialog", return_value=True) as show_confirm:
+            self.assertTrue(app.ask_confirm("Sil", "Onaylıyor musun?", "Sil", "İptal"))
+        show_confirm.assert_called_once_with(
+            app, "Sil", "Onaylıyor musun?", confirm_text="Sil", cancel_text="İptal"
+        )
+        with (
+            patch.object(main.FortniteSplashMaker, "get_next_library_default_name", return_value="Splash 03"),
+            patch.object(main, "show_library_name_dialog", return_value="Deneme") as show_name,
+        ):
+            self.assertEqual(app.ask_library_name(), "Deneme")
+        show_name.assert_called_once_with(app, "Splash 03")
+
+    def _run_mock_dialog(self, dialog_callable, *, on_wait, entry_value=""):
+        """Grafik ekran açmadan gerçek callback bağlarını kontrol eder."""
+        from fortnite_splash_maker.ui import dialogs as ui_dialogs
+
+        widgets = []
+
+        class FakeWidget:
+            def __init__(self, master=None, **options):
+                self.master = master
+                self.options = dict(options)
+                self.events = {}
+                self.placement = None
+                self.geometry_text = None
+                self.destroyed = False
+                self.text_value = entry_value
+                widgets.append(self)
+
+            def geometry(self, text):
+                self.geometry_text = text
+
+            def title(self, value):
+                self.window_title = value
+
+            def resizable(self, *_args):
+                pass
+
+            def configure(self, **options):
+                self.options.update(options)
+
+            def transient(self, *_args):
+                pass
+
+            def place(self, **options):
+                self.placement = options
+
+            def grid_propagate(self, *_args):
+                pass
+
+            def pack_propagate(self, *_args):
+                pass
+
+            def update_idletasks(self):
+                pass
+
+            def grab_set(self):
+                self.grabbed = True
+
+            def focus_force(self):
+                pass
+
+            def focus_set(self):
+                pass
+
+            def bind(self, event, callback):
+                self.events[event] = callback
+
+            def protocol(self, event, callback):
+                self.events[event] = callback
+
+            def destroy(self):
+                self.destroyed = True
+
+            def get(self):
+                return self.text_value
+
+        class Parent:
+            def update_idletasks(self):
+                pass
+
+            def winfo_width(self):
+                return 1180
+
+            def winfo_height(self):
+                return 760
+
+            def winfo_rootx(self):
+                return 200
+
+            def winfo_rooty(self):
+                return 100
+
+            def winfo_screenwidth(self):
+                return 1920
+
+            def winfo_screenheight(self):
+                return 1080
+
+            def wait_window(self, dialog):
+                on_wait(dialog, widgets)
+
+        with (
+            patch.object(ui_dialogs.ctk, "CTkToplevel", FakeWidget, create=True),
+            patch.object(ui_dialogs.ctk, "CTkFrame", FakeWidget, create=True),
+            patch.object(ui_dialogs.ctk, "CTkLabel", FakeWidget, create=True),
+            patch.object(ui_dialogs.ctk, "CTkButton", FakeWidget, create=True),
+            patch.object(ui_dialogs.ctk, "CTkEntry", FakeWidget, create=True),
+            patch.object(ui_dialogs.ctk, "CTkFont", lambda **_kwargs: None, create=True),
+        ):
+            result = dialog_callable(Parent())
+        return result, widgets
+
+    def test_confirm_is_dark_and_destructive_button_red(self):
+        from fortnite_splash_maker.ui.components import UI_BG, UI_SURFACE
+        from fortnite_splash_maker.ui.dialogs import DANGER_COLOR, show_confirm_dialog
+
+        def accept(dialog, widgets):
+            self.assertEqual(dialog.options["fg_color"], UI_BG)
+            self.assertTrue(any(w.options.get("fg_color") == UI_SURFACE for w in widgets))
+            delete_button = next(w for w in widgets if w.options.get("text") == "Sil")
+            self.assertEqual(delete_button.options["fg_color"], DANGER_COLOR)
+            delete_button.options["command"]()
+            self.assertTrue(dialog.destroyed)
+            self.assertTrue(dialog.grabbed)
+
+        result, widgets = self._run_mock_dialog(
+            lambda parent: show_confirm_dialog(parent, "Görseli Sil", "Silinsin mi?", "Sil", "Vazgeç"),
+            on_wait=accept,
+        )
+        self.assertTrue(result)
+        self.assertTrue(widgets[0].geometry_text.startswith("480x254+"))
+
+    def test_confirm_escape_and_window_close_are_cancel(self):
+        from fortnite_splash_maker.ui.dialogs import show_confirm_dialog
+
+        for action in ("<Escape>", "WM_DELETE_WINDOW"):
+            with self.subTest(action=action):
+                result, _widgets = self._run_mock_dialog(
+                    lambda parent: show_confirm_dialog(parent, "Geri Yükle", "Onaylıyor musun?"),
+                    on_wait=lambda dialog, _widgets: dialog.events[action](None) if action == "<Escape>" else dialog.events[action](),
+                )
+                self.assertFalse(result)
+
+    def test_library_name_entry_confirm_and_escape(self):
+        from fortnite_splash_maker.ui.dialogs import show_library_name_dialog
+
+        name, _widgets = self._run_mock_dialog(
+            lambda parent: show_library_name_dialog(parent, "Splash 01"),
+            entry_value="  Test   Görsel  ",
+            on_wait=lambda _dialog, widgets: next(w for w in widgets if w.options.get("placeholder_text") == "Splash 01").events["<Return>"](None),
+        )
+        self.assertEqual(name, "Test Görsel")
+
+        default, _widgets = self._run_mock_dialog(
+            lambda parent: show_library_name_dialog(parent, "Splash 01"),
+            entry_value="  ",
+            on_wait=lambda _dialog, widgets: next(w for w in widgets if w.options.get("placeholder_text") == "Splash 01").events["<Return>"](None),
+        )
+        self.assertEqual(default, "Splash 01")
+
+        canceled, _widgets = self._run_mock_dialog(
+            lambda parent: show_library_name_dialog(parent, "Splash 01"),
+            entry_value="Silinmeyecek",
+            on_wait=lambda dialog, _widgets: dialog.events["<Escape>"](None),
+        )
+        self.assertIsNone(canceled)
+
+    def test_library_name_over_limit_does_not_submit(self):
+        from fortnite_splash_maker.ui.dialogs import show_library_name_dialog
+
+        def invalid_then_cancel(dialog, widgets):
+            entry = next(w for w in widgets if w.options.get("placeholder_text") == "Splash 01")
+            entry.events["<Return>"](None)
+            self.assertFalse(dialog.destroyed)
+            self.assertTrue(any("60 karakter" in w.options.get("text", "") for w in widgets))
+            dialog.events["<Escape>"](None)
+
+        result, _widgets = self._run_mock_dialog(
+            lambda parent: show_library_name_dialog(parent, "Splash 01"),
+            entry_value="X" * 61,
+            on_wait=invalid_then_cancel,
+        )
+        self.assertIsNone(result)
